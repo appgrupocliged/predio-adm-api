@@ -56,7 +56,9 @@ app.post("/solicitacao", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("ERRO TOMTICKET:", error.response?.data || error.message);
+        console.error("ERRO TOMTICKET STATUS:", error.response?.status);
+console.error("ERRO TOMTICKET RESPOSTA:", JSON.stringify(error.response?.data, null, 2));
+console.error("ERRO TOMTICKET MENSAGEM:", error.message);
 
         res.status(500).json({
             sucesso: false,
