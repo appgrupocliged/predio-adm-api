@@ -20,8 +20,6 @@ app.get("/", (req, res) => {
 app.post("/solicitacao", async (req, res) => {
     try {
         const {
-            customer_id,
-            customer_id_type,
             department_id,
             category_id,
             subject,
@@ -29,10 +27,14 @@ app.post("/solicitacao", async (req, res) => {
             priority
         } = req.body;
 
+        // Cliente fixo utilizado pela integração
+        const customer_id = "PREDIO-ADM-MACAE";
+        const customer_id_type = "E";
+
         const dados = new URLSearchParams();
 
         dados.append("customer_id", customer_id);
-        dados.append("customer_id_type", customer_id_type || "E");
+        dados.append("customer_id_type", customer_id_type);
         dados.append("department_id", department_id);
         dados.append("category_id", category_id);
         dados.append("subject", subject);
@@ -56,9 +58,20 @@ app.post("/solicitacao", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("ERRO TOMTICKET STATUS:", error.response?.status);
-console.error("ERRO TOMTICKET RESPOSTA:", JSON.stringify(error.response?.data, null, 2));
-console.error("ERRO TOMTICKET MENSAGEM:", error.message);
+        console.error(
+            "ERRO TOMTICKET STATUS:",
+            error.response?.status
+        );
+
+        console.error(
+            "ERRO TOMTICKET RESPOSTA:",
+            JSON.stringify(error.response?.data, null, 2)
+        );
+
+        console.error(
+            "ERRO TOMTICKET MENSAGEM:",
+            error.message
+        );
 
         res.status(500).json({
             sucesso: false,
