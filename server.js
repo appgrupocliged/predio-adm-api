@@ -28,7 +28,7 @@ app.post("/solicitacao", async (req, res) => {
         } = req.body;
 
         // Cliente fixo utilizado pela integração
-        const customer_id = "PREDIO-ADM-MACAE";
+        const customer_id = "appgrupocliged@gmail.com";
         const customer_id_type = "E";
 
         const dados = new URLSearchParams();
