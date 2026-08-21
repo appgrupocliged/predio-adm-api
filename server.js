@@ -27,7 +27,7 @@ app.post("/solicitacao", async (req, res) => {
             priority
         } = req.body;
 
-        // Cliente fixo utilizado pela integração
+        // Cliente fixo da integração
         const customer_id = "appgrupocliged@gmail.com";
         const customer_id_type = "E";
 
@@ -35,15 +35,18 @@ app.post("/solicitacao", async (req, res) => {
 
         dados.append("customer_id", customer_id);
         dados.append("customer_id_type", customer_id_type);
-        dados.append("department_id", department_id);
-        dados.append("category_id", category_id);
-        dados.append("subject", subject);
-        dados.append("message", message);
-        dados.append("priority", priority || "2");
+        dados.append("department_id", String(department_id));
+        dados.append("category_id", String(category_id));
+        dados.append("subject", String(subject));
+        dados.append("message", String(message));
+        dados.append("priority", String(priority || "2"));
+
+        console.log("DADOS ENVIADOS AO TOMTICKET:");
+        console.log(dados.toString());
 
         const resposta = await axios.post(
             "https://api.tomticket.com/v2.0/ticket/new",
-            dados.toString(),
+            dados,
             {
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
@@ -51,6 +54,9 @@ app.post("/solicitacao", async (req, res) => {
                 }
             }
         );
+
+        console.log("RESPOSTA TOMTICKET:");
+        console.log(JSON.stringify(resposta.data, null, 2));
 
         res.json({
             sucesso: true,
