@@ -40,7 +40,7 @@ app.post("/solicitacao", async (req, res) => {
         dados.append("priority", priority || "2");
 
         const resposta = await axios.post(
-            "https://s3.tikt.com.br/api/v2/ticket",
+            "https://api.tomticket.com/v2.0/ticket/new",
             dados.toString(),
             {
                 headers: {
