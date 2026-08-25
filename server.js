@@ -18,6 +18,12 @@ app.get("/", (req, res) => {
 });
 
 app.post("/solicitacao", async (req, res) => {
+    console.log("=================================");
+    console.log("POST /solicitacao RECEBIDO");
+    console.log("BODY RECEBIDO:");
+    console.log(JSON.stringify(req.body, null, 2));
+    console.log("=================================");
+
     try {
         const {
             department_id,
@@ -27,7 +33,7 @@ app.post("/solicitacao", async (req, res) => {
             priority
         } = req.body;
 
-        // Cliente fixo da integração
+        // Cliente fixo utilizado pela integração
         const customer_id = "appgrupocliged@gmail.com";
         const customer_id_type = "E";
 
@@ -46,7 +52,7 @@ app.post("/solicitacao", async (req, res) => {
 
         const resposta = await axios.post(
             "https://api.tomticket.com/v2.0/ticket/new",
-            dados,
+            dados.toString(),
             {
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
@@ -55,8 +61,10 @@ app.post("/solicitacao", async (req, res) => {
             }
         );
 
+        console.log("=================================");
         console.log("RESPOSTA TOMTICKET:");
         console.log(JSON.stringify(resposta.data, null, 2));
+        console.log("=================================");
 
         res.json({
             sucesso: true,
@@ -64,10 +72,9 @@ app.post("/solicitacao", async (req, res) => {
         });
 
     } catch (error) {
-        console.error(
-            "ERRO TOMTICKET STATUS:",
-            error.response?.status
-        );
+        console.error("=================================");
+        console.error("ERRO AO CRIAR CHAMADO");
+        console.error("ERRO TOMTICKET STATUS:", error.response?.status);
 
         console.error(
             "ERRO TOMTICKET RESPOSTA:",
@@ -78,6 +85,8 @@ app.post("/solicitacao", async (req, res) => {
             "ERRO TOMTICKET MENSAGEM:",
             error.message
         );
+
+        console.error("=================================");
 
         res.status(500).json({
             sucesso: false,
