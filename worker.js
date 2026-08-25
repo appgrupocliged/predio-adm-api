@@ -17,9 +17,11 @@ function respostaJSON(dados, status = 200) {
 
 export default {
     async fetch(request, env) {
+
         // ==============================
         // CORS / PREFLIGHT
         // ==============================
+
         if (request.method === "OPTIONS") {
             return new Response(null, {
                 status: 204,
@@ -32,6 +34,7 @@ export default {
         // ==============================
         // TESTE DA API
         // ==============================
+
         if (request.method === "GET" && url.pathname === "/") {
             return respostaJSON({
                 status: "online",
@@ -42,11 +45,17 @@ export default {
         // ==============================
         // CRIAÇÃO DO CHAMADO
         // ==============================
+
         if (
             request.method === "POST" &&
             url.pathname === "/solicitacao"
         ) {
             try {
+
+                // ==============================
+                // LÊ O JSON DO SITE
+                // ==============================
+
                 const body = await request.json();
 
                 const {
@@ -57,11 +66,19 @@ export default {
                     priority
                 } = body;
 
-                // Cliente fixo utilizado pela integração
-                const customer_id = "appgrupocliged@gmail.com";
+                // ==============================
+                // CLIENTE FIXO
+                // ==============================
+
+                const customer_id =
+                    "appgrupocliged@gmail.com";
+
                 const customer_id_type = "E";
 
-                // Verificação básica dos dados
+                // ==============================
+                // VERIFICAÇÃO DOS DADOS
+                // ==============================
+
                 if (
                     !department_id ||
                     !category_id ||
@@ -71,14 +88,19 @@ export default {
                     return respostaJSON(
                         {
                             sucesso: false,
-                            mensagem: "Dados obrigatórios não informados."
+                            mensagem:
+                                "Dados obrigatórios não informados."
                         },
                         400
                     );
                 }
 
-                // Verifica se o token foi configurado no Cloudflare
+                // ==============================
+                // VERIFICAÇÃO DO TOKEN
+                // ==============================
+
                 if (!env.TOMTICKET_TOKEN) {
+
                     console.error(
                         "TOMTICKET_TOKEN não configurado."
                     );
@@ -97,11 +119,12 @@ export default {
                 // FORMATAÇÃO DA MENSAGEM
                 // ==============================
 
-                const mensagemFormatada = String(message)
-                    .replace(/\\n/g, "\n");
+                const mensagemFormatada =
+                    String(message)
+                        .replace(/\\n/g, "\n");
 
                 // ==============================
-                // DADOS PARA O TOMTICKET
+                // DADOS DO NOVO CHAMADO
                 // ==============================
 
                 const dados = new URLSearchParams();
@@ -142,89 +165,258 @@ export default {
                 );
 
                 console.log(
-                    "Enviando solicitação para o TomTicket."
+                    "Criando chamado no TomTicket..."
                 );
 
                 // ==============================
-                // ENVIO PARA O TOMTICKET
+                // 1. CRIA O CHAMADO
                 // ==============================
 
-                const respostaTomTicket = await fetch(
-                    "https://api.tomticket.com/v2.0/ticket/new",
-                    {
-                        method: "POST",
+                const respostaCriacao =
+                    await fetch(
+                        "https://api.tomticket.com/v2.0/ticket/new",
+                        {
+                            method: "POST",
 
-                        headers: {
-                            "Content-Type":
-                                "application/x-www-form-urlencoded",
+                            headers: {
+                                "Content-Type":
+                                    "application/x-www-form-urlencoded",
 
-                            "Authorization":
-                                `Bearer ${env.TOMTICKET_TOKEN}`
-                        },
+                                "Authorization":
+                                    `Bearer ${env.TOMTICKET_TOKEN}`
+                            },
 
-                        body: dados.toString()
-                    }
-                );
+                            body: dados.toString()
+                        }
+                    );
 
-                const textoResposta =
-                    await respostaTomTicket.text();
+                const textoCriacao =
+                    await respostaCriacao.text();
 
-                let dadosResposta;
+                let dadosCriacao;
 
                 try {
-                    dadosResposta =
-                        JSON.parse(textoResposta);
+                    dadosCriacao =
+                        JSON.parse(textoCriacao);
                 } catch {
-                    dadosResposta = {
-                        resposta: textoResposta
+                    dadosCriacao = {
+                        resposta: textoCriacao
                     };
                 }
 
                 console.log(
-                    "Status TomTicket:",
-                    respostaTomTicket.status
+                    "Status criação:",
+                    respostaCriacao.status
                 );
 
                 console.log(
-                    "Resposta TomTicket:",
+                    "Resposta criação:",
                     JSON.stringify(
-                        dadosResposta,
+                        dadosCriacao,
                         null,
                         2
                     )
                 );
 
                 // ==============================
-                // ERRO DO TOMTICKET
+                // ERRO AO CRIAR CHAMADO
                 // ==============================
 
-                if (!respostaTomTicket.ok) {
+                if (
+                    !respostaCriacao.ok ||
+                    dadosCriacao.error === true ||
+                    dadosCriacao.success === false
+                ) {
                     return respostaJSON(
                         {
                             sucesso: false,
                             mensagem:
                                 "Erro ao criar chamado no TomTicket",
-                            erro: dadosResposta
+                            erro: dadosCriacao
                         },
                         500
                     );
                 }
 
                 // ==============================
-                // SUCESSO
+                // O TOMTICKET RETORNA O TICKET_ID
                 // ==============================
+
+                const ticket_id =
+                    dadosCriacao.ticket_id ||
+                    dadosCriacao.id ||
+                    dadosCriacao.data?.ticket_id ||
+                    dadosCriacao.data?.id;
+
+                // ==============================
+                // SEGURANÇA
+                // ==============================
+
+                if (!ticket_id) {
+
+                    console.error(
+                        "Chamado criado, mas o TomTicket não retornou ticket_id."
+                    );
+
+                    return respostaJSON(
+                        {
+                            sucesso: false,
+                            mensagem:
+                                "Chamado criado no TomTicket, mas não foi possível obter o ID para finalizar a configuração.",
+                            tomticket: dadosCriacao
+                        },
+                        500
+                    );
+                }
+
+                console.log(
+                    "Chamado criado:",
+                    ticket_id
+                );
+
+                // ==================================================
+                // 2. TRANSFERE PARA O DEPARTAMENTO SEM ATENDENTE
+                // ==================================================
+                //
+                // IMPORTANTE:
+                // Não enviamos operator_id.
+                //
+                // A intenção é deixar o chamado em "Sem Atendente".
+                //
+                // ==================================================
+
+                const transferencia =
+                    new URLSearchParams();
+
+                transferencia.append(
+                    "ticket_id",
+                    String(ticket_id)
+                );
+
+                transferencia.append(
+                    "department_id",
+                    String(department_id)
+                );
+
+                console.log(
+                    "Transferindo chamado para o departamento sem atendente..."
+                );
+
+                const respostaTransferencia =
+                    await fetch(
+                        "https://api.tomticket.com/v2.0/ticket/transfer",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/x-www-form-urlencoded",
+
+                                "Authorization":
+                                    `Bearer ${env.TOMTICKET_TOKEN}`
+                            },
+
+                            body:
+                                transferencia.toString()
+                        }
+                    );
+
+                const textoTransferencia =
+                    await respostaTransferencia.text();
+
+                let dadosTransferencia;
+
+                try {
+                    dadosTransferencia =
+                        JSON.parse(textoTransferencia);
+                } catch {
+                    dadosTransferencia = {
+                        resposta: textoTransferencia
+                    };
+                }
+
+                console.log(
+                    "Status transferência:",
+                    respostaTransferencia.status
+                );
+
+                console.log(
+                    "Resposta transferência:",
+                    JSON.stringify(
+                        dadosTransferencia,
+                        null,
+                        2
+                    )
+                );
+
+                // ==================================================
+                // SE A TRANSFERÊNCIA FALHAR
+                // ==================================================
+                //
+                // Não existe rollback de exclusão aqui.
+                // O chamado já foi criado.
+                //
+                // Então informamos exatamente o que aconteceu.
+                //
+                // ==================================================
+
+                if (
+                    !respostaTransferencia.ok ||
+                    dadosTransferencia.error === true ||
+                    dadosTransferencia.success === false
+                ) {
+
+                    console.error(
+                        "TRANSFERÊNCIA FALHOU."
+                    );
+
+                    return respostaJSON(
+                        {
+                            sucesso: false,
+
+                            mensagem:
+                                "O chamado foi criado no TomTicket, mas não foi possível deixá-lo sem atendente.",
+
+                            ticket_id: ticket_id,
+
+                            chamado_criado: true,
+
+                            erro_transferencia:
+                                dadosTransferencia,
+
+                            tomticket:
+                                dadosCriacao
+                        },
+                        500
+                    );
+                }
+
+                // ==============================
+                // SUCESSO FINAL
+                // ==============================
+
+                console.log(
+                    "Chamado criado e deixado sem atendente:",
+                    ticket_id
+                );
 
                 return respostaJSON({
                     sucesso: true,
-                    tomticket: dadosResposta
+
+                    mensagem:
+                        "Chamado criado com sucesso e deixado sem atendente.",
+
+                    ticket_id: ticket_id,
+
+                    tomticket:
+                        dadosCriacao,
+
+                    transferencia:
+                        dadosTransferencia
                 });
-            }
 
-            // ==============================
-            // ERRO GERAL
-            // ==============================
+            } catch (error) {
 
-            catch (error) {
                 console.error(
                     "ERRO NA API:",
                     error.message
@@ -233,9 +425,12 @@ export default {
                 return respostaJSON(
                     {
                         sucesso: false,
+
                         mensagem:
                             "Erro interno ao processar a solicitação.",
-                        erro: error.message
+
+                        erro:
+                            error.message
                     },
                     500
                 );
