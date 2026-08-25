@@ -44,7 +44,14 @@ app.post("/solicitacao", async (req, res) => {
         dados.append("department_id", String(department_id));
         dados.append("category_id", String(category_id));
         dados.append("subject", String(subject));
-        dados.append("message", String(message));
+
+        // Converte os caracteres "\n" recebidos em
+        // quebras de linha reais antes de enviar ao TomTicket
+        const mensagemFormatada = String(message)
+            .replace(/\\n/g, "\n");
+
+        dados.append("message", mensagemFormatada);
+
         dados.append("priority", String(priority || "2"));
 
         console.log("DADOS ENVIADOS AO TOMTICKET:");
@@ -74,7 +81,11 @@ app.post("/solicitacao", async (req, res) => {
     } catch (error) {
         console.error("=================================");
         console.error("ERRO AO CRIAR CHAMADO");
-        console.error("ERRO TOMTICKET STATUS:", error.response?.status);
+
+        console.error(
+            "ERRO TOMTICKET STATUS:",
+            error.response?.status
+        );
 
         console.error(
             "ERRO TOMTICKET RESPOSTA:",
