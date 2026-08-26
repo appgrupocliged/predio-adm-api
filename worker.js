@@ -5,631 +5,366 @@ const CORS_HEADERS = {
     "Content-Type": "application/json; charset=UTF-8"
 };
 
-
-// ============================================================
-// MAPA OFICIAL DOS QR CODES
-// ============================================================
-//
-// O código B.X é a identificação oficial do local.
-//
-// O nome usado no TomTicket é definido AQUI no Worker.
-// Não depende do nome enviado pelo navegador.
-//
-
-const LOCAIS_QR = {
-
-    "B.1": "DIRETORIA",
-
-    "B.2": "CORREDOR AUTORIZAÇÃO",
-
-    "B.3": "FINANCEIRO",
-
-    "B.4": "RH",
-
-    "B.5": "COMPRAS",
-
-    "B.6": "ESTOQUE",
-
-    "B.7": "ESTOQUE",
-
-    "B.8": "CONTROLADORIA",
-
-    "B.9": "COWORKING",
-
-    "B.10": "CORREDOR REUNIÃO",
-
-    "B.11": "D.P",
-
-    "B.12": "CORREDOR CALL CENTER",
-
-    "B.13": "COMFORT ADM",
-
-    "B.14": "T.I",
-
-    "B.15": "CTA ADM",
-
-    "B.16": "MARKETING / INFRAESTRUTURA",
-
-    "B.17": "FATURAMENTO",
-
-    "B.18": "AUDITORIA",
-
-    "B.19": "QUALIDADE"
-
-};
-
-
-// ============================================================
-// RESPOSTA JSON
-// ============================================================
-
 function respostaJSON(dados, status = 200) {
-
     return new Response(
-        JSON.stringify(dados),
+        JSON.stringify(dados, null, 2),
         {
             status,
             headers: CORS_HEADERS
         }
     );
-
 }
 
-
-// ============================================================
-// WORKER
-// ============================================================
-
 export default {
-
     async fetch(request, env) {
 
-        // ====================================================
+        // ==============================
         // CORS / PREFLIGHT
-        // ====================================================
+        // ==============================
 
         if (request.method === "OPTIONS") {
-
             return new Response(null, {
                 status: 204,
                 headers: CORS_HEADERS
             });
-
         }
-
 
         const url = new URL(request.url);
 
-
-        // ====================================================
+        // ==============================
         // TESTE DA API
-        // ====================================================
+        // ==============================
 
-        if (
-            request.method === "GET" &&
-            url.pathname === "/"
-        ) {
-
+        if (request.method === "GET" && url.pathname === "/") {
             return respostaJSON({
-
                 status: "online",
-
-                mensagem:
-                    "API do sistema de solicitações funcionando",
-
-                locais_qr:
-                    Object.keys(LOCAIS_QR).length
-
+                mensagem: "API do sistema de solicitações funcionando"
             });
-
         }
 
-
-        // ====================================================
+        // ==============================
         // CRIAÇÃO DO CHAMADO
-        // ====================================================
+        // ==============================
 
         if (
             request.method === "POST" &&
             url.pathname === "/solicitacao"
         ) {
-
             try {
 
-                // =================================================
-                // RECEBE O JSON DO HTML
-                // =================================================
-
-                const body =
-                    await request.json();
-
+                const body = await request.json();
 
                 const {
-
-                    local_code,
-
+                    department_id,
                     category_id,
-
                     subject,
-
                     message,
-
                     priority
-
                 } = body;
 
-
-                // =================================================
-                // VALIDAÇÃO DO CÓDIGO DO QR
-                // =================================================
-
-                if (!local_code) {
-
-                    return respostaJSON(
-                        {
-                            sucesso: false,
-
-                            mensagem:
-                                "Código do local não informado."
-                        },
-                        400
-                    );
-
-                }
-
-
-                // =================================================
-                // CONVERSÃO OFICIAL
-                // =================================================
-                //
-                // O nome NÃO vem do navegador.
-                //
-                // Exemplo:
-                //
-                // B.19
-                // ↓
-                // QUALIDADE
-                //
-                // =================================================
-
-                const local =
-                    LOCAIS_QR[local_code];
-
-
-                if (!local) {
-
-                    return respostaJSON(
-                        {
-                            sucesso: false,
-
-                            mensagem:
-                                "Código de local inválido.",
-
-                            codigo_recebido:
-                                local_code
-                        },
-                        400
-                    );
-
-                }
-
-
-                console.log(
-                    "QR recebido:",
-                    local_code
-                );
-
-                console.log(
-                    "Local identificado:",
-                    local
-                );
-
-
-                // =================================================
+                // ==============================
                 // CLIENTE FIXO
-                // =================================================
+                // ==============================
 
-                const customer_id =
-                    "appgrupocliged@gmail.com";
+                const customer_id = "appgrupocliged@gmail.com";
+                const customer_id_type = "E";
 
-                const customer_id_type =
-                    "E";
-
-
-                // =================================================
-                // DADOS OBRIGATÓRIOS
-                // =================================================
+                // ==============================
+                // VALIDAÇÃO
+                // ==============================
 
                 if (
+                    !department_id ||
                     !category_id ||
+                    !subject ||
                     !message
                 ) {
-
                     return respostaJSON(
                         {
                             sucesso: false,
-
-                            mensagem:
-                                "Dados obrigatórios não informados."
+                            mensagem: "Dados obrigatórios não informados."
                         },
                         400
                     );
-
                 }
 
-
-                // =================================================
+                // ==============================
                 // TOKEN
-                // =================================================
+                // ==============================
 
                 if (!env.TOMTICKET_TOKEN) {
-
-                    console.error(
-                        "TOMTICKET_TOKEN não configurado."
-                    );
-
                     return respostaJSON(
                         {
                             sucesso: false,
-
-                            mensagem:
-                                "Token do TomTicket não configurado na API."
+                            mensagem: "Token do TomTicket não configurado na API."
                         },
                         500
                     );
-
                 }
 
-
-                // =================================================
-                // MENSAGEM
-                // =================================================
+                // ==============================
+                // FORMATAÇÃO DA MENSAGEM
+                // ==============================
 
                 const mensagemFormatada =
-                    String(message)
-                        .replace(/\\n/g, "\n");
+                    String(message).replace(/\\n/g, "\n");
 
+                // ==============================
+                // DADOS PARA CRIAR CHAMADO
+                // ==============================
 
-                // =================================================
-                // ASSUNTO OFICIAL
-                // =================================================
-                //
-                // O Worker também monta o assunto.
-                //
-                // Isso impede que o navegador mande:
-                //
-                // "Solicitação - HEAD"
-                //
-                // enquanto o QR é B.19.
-                //
-                // =================================================
+                const dados = new URLSearchParams();
 
-                const assuntoOficial =
-                    "Solicitação - " + local;
+                dados.append("customer_id", customer_id);
+                dados.append("customer_id_type", customer_id_type);
+                dados.append("department_id", String(department_id));
+                dados.append("category_id", String(category_id));
+                dados.append("subject", String(subject));
+                dados.append("message", mensagemFormatada);
+                dados.append("priority", String(priority || "2"));
 
+                // ==============================
+                // 1. CRIAR CHAMADO
+                // ==============================
 
-                // =================================================
-                // MENSAGEM OFICIAL
-                // =================================================
-                //
-                // O local oficial também é colocado no início
-                // da mensagem.
-                //
-                // =================================================
+                const respostaCriacao = await fetch(
+                    "https://api.tomticket.com/v2.0/ticket/new",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type":
+                                "application/x-www-form-urlencoded",
+                            "Authorization":
+                                `Bearer ${env.TOMTICKET_TOKEN}`
+                        },
+                        body: dados.toString()
+                    }
+                );
 
-                const mensagemOficial =
-                    "Local: " +
-                    local +
-                    "\n\n" +
-                    mensagemFormatada
-                        .replace(
-                            /^Local:.*\n*/i,
-                            ""
-                        );
+                const textoCriacao =
+                    await respostaCriacao.text();
 
+                let dadosCriacao;
 
-                // =================================================
-                // DADOS PARA O TOMTICKET
-                // =================================================
+                try {
+                    dadosCriacao = JSON.parse(textoCriacao);
+                } catch {
+                    dadosCriacao = {
+                        resposta: textoCriacao
+                    };
+                }
 
-                const dados =
+                // ==============================
+                // VERIFICAÇÃO DA CRIAÇÃO
+                // ==============================
+
+                if (
+                    !respostaCriacao.ok ||
+                    dadosCriacao.error === true ||
+                    dadosCriacao.success === false
+                ) {
+                    return respostaJSON(
+                        {
+                            sucesso: false,
+                            etapa: "criacao",
+                            mensagem:
+                                "Erro ao criar chamado no TomTicket",
+                            status_tomticket:
+                                respostaCriacao.status,
+                            resposta_tomticket:
+                                dadosCriacao
+                        },
+                        500
+                    );
+                }
+
+                // ==============================
+                // PEGA O ID DO CHAMADO
+                // ==============================
+
+                const ticket_id =
+                    dadosCriacao.ticket_id ||
+                    dadosCriacao.id ||
+                    dadosCriacao.data?.ticket_id ||
+                    dadosCriacao.data?.id;
+
+                if (!ticket_id) {
+                    return respostaJSON(
+                        {
+                            sucesso: false,
+                            etapa: "criacao",
+                            mensagem:
+                                "Chamado criado, mas o TomTicket não retornou o ticket_id.",
+                            tomticket:
+                                dadosCriacao
+                        },
+                        500
+                    );
+                }
+
+                // ==============================
+                // 2. TRANSFERIR SEM ATENDENTE
+                // ==============================
+
+                const transferencia =
                     new URLSearchParams();
 
-
-                dados.append(
-                    "customer_id",
-                    customer_id
+                transferencia.append(
+                    "ticket_id",
+                    String(ticket_id)
                 );
 
-
-                dados.append(
-                    "customer_id_type",
-                    customer_id_type
-                );
-
-
-                // =================================================
-                // DEPARTAMENTO INFRAESTRUTURA
-                // =================================================
-
-                dados.append(
+                transferencia.append(
                     "department_id",
-                    "2d507dafee35b29d9e5852d9b0c4ce2c"
+                    String(department_id)
                 );
 
+                // IMPORTANTE:
+                // NÃO enviamos operator_id.
+                //
+                // A documentação do TomTicket informa que
+                // operator_id é opcional no /ticket/transfer.
+                // ==============================
 
-                // =================================================
-                // CATEGORIA PRÉDIO ADM
-                // =================================================
-
-                dados.append(
-                    "category_id",
-                    String(category_id)
-                );
-
-
-                // =================================================
-                // ASSUNTO
-                // =================================================
-
-                dados.append(
-                    "subject",
-                    assuntoOficial
-                );
-
-
-                // =================================================
-                // MENSAGEM
-                // =================================================
-
-                dados.append(
-                    "message",
-                    mensagemOficial
-                );
-
-
-                // =================================================
-                // PRIORIDADE
-                // =================================================
-
-                dados.append(
-                    "priority",
-                    String(priority || "2")
-                );
-
-
-                console.log(
-                    "Enviando chamado para o TomTicket."
-                );
-
-                console.log(
-                    "Código QR:",
-                    local_code
-                );
-
-                console.log(
-                    "Local oficial:",
-                    local
-                );
-
-                console.log(
-                    "Assunto:",
-                    assuntoOficial
-                );
-
-
-                // =================================================
-                // ENVIO PARA O TOMTICKET
-                // =================================================
-
-                const respostaTomTicket =
+                const respostaTransferencia =
                     await fetch(
-                        "https://api.tomticket.com/v2.0/ticket/new",
+                        "https://api.tomticket.com/v2.0/ticket/transfer",
                         {
-
                             method: "POST",
 
                             headers: {
-
                                 "Content-Type":
                                     "application/x-www-form-urlencoded",
 
                                 "Authorization":
                                     `Bearer ${env.TOMTICKET_TOKEN}`
-
                             },
 
                             body:
-                                dados.toString()
-
+                                transferencia.toString()
                         }
                     );
 
+                const textoTransferencia =
+                    await respostaTransferencia.text();
 
-                // =================================================
-                // LÊ RESPOSTA
-                // =================================================
-
-                const textoResposta =
-                    await respostaTomTicket.text();
-
-
-                let dadosResposta;
-
+                let dadosTransferencia;
 
                 try {
-
-                    dadosResposta =
-                        JSON.parse(
-                            textoResposta
-                        );
-
+                    dadosTransferencia =
+                        JSON.parse(textoTransferencia);
                 } catch {
-
-                    dadosResposta = {
-
+                    dadosTransferencia = {
                         resposta:
-                            textoResposta
-
+                            textoTransferencia
                     };
-
                 }
 
+                // ==============================
+                // RESPOSTA DE DIAGNÓSTICO
+                // ==============================
 
-                console.log(
-                    "Status TomTicket:",
-                    respostaTomTicket.status
-                );
+                const transferenciaOK =
+                    respostaTransferencia.ok &&
+                    dadosTransferencia.error !== true &&
+                    dadosTransferencia.success !== false;
 
+                // ==============================
+                // TRANSFERÊNCIA FALHOU
+                // ==============================
 
-                console.log(
-                    "Resposta TomTicket:",
-                    JSON.stringify(
-                        dadosResposta,
-                        null,
-                        2
-                    )
-                );
-
-
-                // =================================================
-                // ERRO TOMTICKET
-                // =================================================
-
-                if (
-                    !respostaTomTicket.ok
-                ) {
-
+                if (!transferenciaOK) {
                     return respostaJSON(
                         {
-
                             sucesso: false,
 
+                            etapa: "transferencia",
+
                             mensagem:
-                                "Erro ao criar chamado no TomTicket.",
+                                "O chamado foi criado, mas a transferência para sem atendente falhou.",
 
-                            local:
-                                local,
+                            chamado_criado: true,
 
-                            codigo:
-                                local_code,
+                            ticket_id:
+                                ticket_id,
 
-                            erro:
-                                dadosResposta
+                            criacao:
+                                dadosCriacao,
 
+                            transferencia: {
+                                http_status:
+                                    respostaTransferencia.status,
+
+                                resposta:
+                                    dadosTransferencia
+                            }
                         },
                         500
                     );
-
                 }
 
-
-                // =================================================
-                // VERIFICA SUCESSO DO TOMTICKET
-                // =================================================
-
-                if (
-                    dadosResposta &&
-                    dadosResposta.success === false
-                ) {
-
-                    return respostaJSON(
-                        {
-
-                            sucesso: false,
-
-                            mensagem:
-                                "TomTicket não confirmou a criação do chamado.",
-
-                            local:
-                                local,
-
-                            codigo:
-                                local_code,
-
-                            erro:
-                                dadosResposta
-
-                        },
-                        500
-                    );
-
-                }
-
-
-                // =================================================
+                // ==============================
                 // SUCESSO
-                // =================================================
+                // ==============================
 
                 return respostaJSON({
-
                     sucesso: true,
 
-                    local_code:
-                        local_code,
+                    mensagem:
+                        "Chamado criado e transferência processada.",
 
-                    local:
-                        local,
+                    ticket_id:
+                        ticket_id,
 
-                    subject:
-                        assuntoOficial,
+                    criacao:
+                        dadosCriacao,
 
-                    tomticket:
-                        dadosResposta
+                    transferencia: {
+                        http_status:
+                            respostaTransferencia.status,
 
+                        resposta:
+                            dadosTransferencia,
+
+                        operator_id_enviado:
+                            false
+                    }
                 });
 
-            }
-
-
-            // =====================================================
-            // ERRO GERAL
-            // =====================================================
-
-            catch (error) {
+            } catch (error) {
 
                 console.error(
                     "ERRO NA API:",
-                    error
+                    error.message
                 );
-
 
                 return respostaJSON(
                     {
-
                         sucesso: false,
+
+                        etapa: "worker",
 
                         mensagem:
                             "Erro interno ao processar a solicitação.",
 
                         erro:
                             error.message
-
                     },
                     500
                 );
-
             }
-
         }
 
-
-        // ========================================================
+        // ==============================
         // ROTA NÃO ENCONTRADA
-        // ========================================================
+        // ==============================
 
         return respostaJSON(
             {
-
                 sucesso: false,
-
-                mensagem:
-                    "Rota não encontrada."
-
+                mensagem: "Rota não encontrada."
             },
             404
         );
-
     }
-
 };
