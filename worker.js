@@ -15,6 +15,7 @@ const CORS_HEADERS = {
 // O nome usado no TomTicket é definido AQUI no Worker.
 // Não depende do nome enviado pelo navegador.
 //
+// ============================================================
 
 const LOCAIS_QR = {
 
@@ -179,16 +180,16 @@ export default {
 
 
                 // =================================================
-                // CONVERSÃO OFICIAL
+                // CONVERSÃO OFICIAL DO QR
                 // =================================================
                 //
                 // O nome NÃO vem do navegador.
                 //
                 // Exemplo:
                 //
-                // B.19
+                // B.17
                 // ↓
-                // QUALIDADE
+                // FATURAMENTO
                 //
                 // =================================================
 
@@ -282,7 +283,7 @@ export default {
 
 
                 // =================================================
-                // MENSAGEM
+                // MENSAGEM RECEBIDA
                 // =================================================
 
                 const mensagemFormatada =
@@ -294,13 +295,7 @@ export default {
                 // ASSUNTO OFICIAL
                 // =================================================
                 //
-                // O Worker também monta o assunto.
-                //
-                // Isso impede que o navegador mande:
-                //
-                // "Solicitação - HEAD"
-                //
-                // enquanto o QR é B.19.
+                // O Worker monta o assunto.
                 //
                 // =================================================
 
@@ -312,8 +307,7 @@ export default {
                 // MENSAGEM OFICIAL
                 // =================================================
                 //
-                // O local oficial também é colocado no início
-                // da mensagem.
+                // O Worker também define o local oficial.
                 //
                 // =================================================
 
@@ -335,6 +329,10 @@ export default {
                 const dados =
                     new URLSearchParams();
 
+
+                // =================================================
+                // CLIENTE
+                // =================================================
 
                 dados.append(
                     "customer_id",
@@ -398,6 +396,14 @@ export default {
                 );
 
 
+                // =================================================
+                // LOGS
+                // =================================================
+
+                console.log(
+                    "========================================"
+                );
+
                 console.log(
                     "Enviando chamado para o TomTicket."
                 );
@@ -415,6 +421,20 @@ export default {
                 console.log(
                     "Assunto:",
                     assuntoOficial
+                );
+
+                console.log(
+                    "Categoria:",
+                    category_id
+                );
+
+                console.log(
+                    "Prioridade:",
+                    priority || "2"
+                );
+
+                console.log(
+                    "========================================"
                 );
 
 
@@ -447,7 +467,7 @@ export default {
 
 
                 // =================================================
-                // LÊ RESPOSTA
+                // LÊ RESPOSTA DO TOMTICKET
                 // =================================================
 
                 const textoResposta =
@@ -560,6 +580,11 @@ export default {
                 // =================================================
                 // SUCESSO
                 // =================================================
+
+                console.log(
+                    "Chamado criado com sucesso."
+                );
+
 
                 return respostaJSON({
 
