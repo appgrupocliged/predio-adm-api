@@ -158,6 +158,332 @@ export default {
 
 
         // ====================================================
+        // CONSULTA STATUS DO CHAMADO
+        // ====================================================
+        //
+        // O HTML utiliza esta rota para consultar o status
+        // atual diretamente no TomTicket.
+        //
+        // O token permanece protegido no Worker.
+        //
+        // ====================================================
+
+        if(
+            request.method === "GET" &&
+            url.pathname === "/status"
+        ){
+
+            try {
+
+                const ticket_id =
+                    String(
+                        url.searchParams.get(
+                            "id"
+                        ) || ""
+                    ).trim();
+
+
+                // =================================================
+                // VALIDA ID
+                // =================================================
+
+                if(
+                    !ticket_id
+                ){
+
+                    return respostaJSON(
+
+                        {
+                            sucesso: false,
+
+                            mensagem:
+                                "ID do chamado não informado."
+                        },
+
+                        400
+
+                    );
+
+                }
+
+
+                // =================================================
+                // TOKEN
+                // =================================================
+
+                if(
+                    !env.TOMTICKET_TOKEN
+                ){
+
+                    console.error(
+                        "TOMTICKET_TOKEN não configurado."
+                    );
+
+                    return respostaJSON(
+
+                        {
+                            sucesso: false,
+
+                            mensagem:
+                                "Token do TomTicket não configurado na API."
+                        },
+
+                        500
+
+                    );
+
+                }
+
+
+                // =================================================
+                // CONSULTA TOMTICKET
+                // =================================================
+
+                const urlTomTicket =
+                    "https://api.tomticket.com/v2.0/ticket/detail" +
+                    "?ticket_id=" +
+                    encodeURIComponent(
+                        ticket_id
+                    );
+
+
+                const resposta =
+                    await fetch(
+
+                        urlTomTicket,
+
+                        {
+
+                            method:
+                                "GET",
+
+                            headers: {
+
+                                "Authorization":
+                                    `Bearer ${env.TOMTICKET_TOKEN}`,
+
+                                "Accept":
+                                    "application/json"
+
+                            }
+
+                        }
+
+                    );
+
+
+                // =================================================
+                // LÊ RESPOSTA
+                // =================================================
+
+                const texto =
+                    await resposta.text();
+
+
+                let resultado;
+
+
+                try {
+
+                    resultado =
+                        JSON.parse(
+                            texto
+                        );
+
+                }
+                catch {
+
+                    resultado = {
+
+                        resposta:
+                            texto
+
+                    };
+
+                }
+
+
+                console.log(
+                    "Status consulta:",
+                    resposta.status
+                );
+
+
+                console.log(
+                    "Resposta consulta:",
+                    JSON.stringify(
+                        resultado,
+                        null,
+                        2
+                    )
+                );
+
+
+                // =================================================
+                // ERRO
+                // =================================================
+
+                if(
+                    !resposta.ok ||
+                    resultado.error === true ||
+                    resultado.success === false
+                ){
+
+                    return respostaJSON(
+
+                        {
+                            sucesso: false,
+
+                            mensagem:
+                                "Não foi possível consultar o chamado.",
+
+                            ticket_id:
+                                ticket_id,
+
+                            status_tomticket:
+                                resposta.status,
+
+                            tomticket:
+                                resultado
+
+                        },
+
+                        resposta.status >= 400
+                            ? resposta.status
+                            : 500
+
+                    );
+
+                }
+
+
+                // =================================================
+                // DADOS DO CHAMADO
+                // =================================================
+
+                const dadosTicket =
+                    resultado.data ||
+                    resultado;
+
+
+                // =================================================
+                // IDENTIFICA SITUAÇÃO
+                // =================================================
+
+                /*
+                O TomTicket retorna informações do status
+                dentro dos detalhes do chamado.
+
+                Mantemos os dados originais completos para o
+                HTML poder trabalhar com eles.
+                */
+
+                let statusAtual =
+                    null;
+
+
+                if(
+                    dadosTicket.status
+                ){
+
+                    statusAtual =
+                        dadosTicket.status;
+
+                }
+                else if(
+                    dadosTicket.status_name
+                ){
+
+                    statusAtual =
+                        dadosTicket.status_name;
+
+                }
+                else if(
+                    dadosTicket.status_description
+                ){
+
+                    statusAtual =
+                        dadosTicket.status_description;
+
+                }
+
+
+                // =================================================
+                // VERIFICA ENCERRAMENTO
+                // =================================================
+
+                const encerrado =
+                    !!dadosTicket.end;
+
+
+                if(
+                    encerrado
+                ){
+
+                    statusAtual =
+                        "FINALIZADO";
+
+                }
+
+
+                // =================================================
+                // RESPOSTA
+                // =================================================
+
+                return respostaJSON({
+
+                    sucesso:
+                        true,
+
+                    ticket_id:
+                        ticket_id,
+
+                    status:
+                        statusAtual,
+
+                    finalizado:
+                        encerrado,
+
+                    ticket:
+                        dadosTicket
+
+                });
+
+
+            }
+            catch(error){
+
+                console.error(
+                    "ERRO NA CONSULTA DE STATUS:",
+                    error
+                );
+
+
+                return respostaJSON(
+
+                    {
+                        sucesso: false,
+
+                        etapa:
+                            "status",
+
+                        mensagem:
+                            "Erro interno ao consultar o status do chamado.",
+
+                        erro:
+                            error.message
+                    },
+
+                    500
+
+                );
+
+            }
+
+        }
+
+
+        // ====================================================
         // CRIAÇÃO DO CHAMADO
         // ====================================================
 
@@ -633,10 +959,6 @@ export default {
                 // =================================================
                 // 3. ENVIA LINK PARA O MESMO CHAMADO
                 // =================================================
-                //
-                // Esta mensagem aparece ABAIXO da solicitação.
-                //
-                // =================================================
 
                 const dadosLink =
                     new URLSearchParams();
@@ -1036,263 +1358,7 @@ export default {
 
         }
 
-// ========================================================
-// CONSULTA DE STATUS DO CHAMADO
-// ========================================================
 
-if(
-    request.method === "GET" &&
-    url.pathname === "/status"
-){
-
-    try {
-
-        const ticket_id =
-            String(
-                url.searchParams.get("ticket_id") || ""
-            ).trim();
-
-
-        // =================================================
-        // VALIDA ID
-        // =================================================
-
-        if(!ticket_id){
-
-            return respostaJSON(
-
-                {
-                    sucesso: false,
-
-                    mensagem:
-                        "ID do chamado não informado."
-                },
-
-                400
-
-            );
-
-        }
-
-
-        // =================================================
-        // TOKEN
-        // =================================================
-
-        if(
-            !env.TOMTICKET_TOKEN
-        ){
-
-            return respostaJSON(
-
-                {
-                    sucesso: false,
-
-                    mensagem:
-                        "Token do TomTicket não configurado na API."
-                },
-
-                500
-
-            );
-
-        }
-
-
-        // =================================================
-        // CONSULTA TOMTICKET
-        // =================================================
-
-        const urlTomTicket =
-            "https://api.tomticket.com/v2.0/ticket/detail" +
-            "?ticket_id=" +
-            encodeURIComponent(ticket_id);
-
-
-        const resposta =
-            await fetch(
-
-                urlTomTicket,
-
-                {
-
-                    method:
-                        "GET",
-
-                    headers: {
-
-                        "Authorization":
-                            `Bearer ${env.TOMTICKET_TOKEN}`,
-
-                        "Accept":
-                            "application/json"
-
-                    }
-
-                }
-
-            );
-
-
-        // =================================================
-        // LÊ RESPOSTA
-        // =================================================
-
-        const texto =
-            await resposta.text();
-
-
-        let resultado;
-
-
-        try {
-
-            resultado =
-                JSON.parse(
-                    texto
-                );
-
-        }
-        catch {
-
-            resultado = {
-
-                resposta:
-                    texto
-
-            };
-
-        }
-
-
-        console.log(
-            "Consulta de status:",
-            JSON.stringify(
-                resultado,
-                null,
-                2
-            )
-        );
-
-
-        // =================================================
-        // VERIFICA
-        // =================================================
-
-        if(
-            !resposta.ok ||
-            resultado.error === true ||
-            resultado.success === false
-        ){
-
-            return respostaJSON(
-
-                {
-                    sucesso: false,
-
-                    mensagem:
-                        "Não foi possível consultar o chamado.",
-
-                    ticket_id:
-                        ticket_id,
-
-                    resposta_tomticket:
-                        resultado
-
-                },
-
-                resposta.status || 500
-
-            );
-
-        }
-
-
-        // =================================================
-        // DADOS DO CHAMADO
-        // =================================================
-
-        const chamado =
-            resultado.data || {};
-
-
-        const statusAtual =
-            chamado.current_status?.description ||
-            chamado.situation?.description ||
-            "Aguardando atendimento";
-
-
-        const statusId =
-            chamado.current_status?.id ||
-            chamado.situation?.id ||
-            null;
-
-
-        // =================================================
-        // VERIFICA SE FOI ENCERRADO
-        // =================================================
-
-        const concluido =
-            !!chamado.end_date;
-
-
-        // =================================================
-        // RESPOSTA PARA O HTML
-        // =================================================
-
-        return respostaJSON({
-
-            sucesso:
-                true,
-
-            ticket_id:
-                ticket_id,
-
-            status:
-                statusAtual,
-
-            status_id:
-                statusId,
-
-            concluido:
-                concluido,
-
-            end_date:
-                chamado.end_date || null
-
-        });
-
-
-    }
-    catch(error){
-
-        console.error(
-            "ERRO AO CONSULTAR STATUS:",
-            error
-        );
-
-
-        return respostaJSON(
-
-            {
-                sucesso: false,
-
-                mensagem:
-                    "Erro interno ao consultar o status.",
-
-                erro:
-                    error.message
-
-            },
-
-            500
-
-        );
-
-    }
-
-}
-        
         // ========================================================
         // CONCLUSÃO DA SOLICITAÇÃO
         // ========================================================
@@ -1423,20 +1489,20 @@ if(
 
 
                 // =================================================
-                // DADOS DA RESPOSTA
+                // 1. REGISTRA A CONCLUSÃO NO CHAMADO
                 // =================================================
 
-                const dados =
+                const dadosResposta =
                     new URLSearchParams();
 
 
-                dados.append(
+                dadosResposta.append(
                     "ticket_id",
                     ticket_id
                 );
 
 
-                dados.append(
+                dadosResposta.append(
                     "message",
                     mensagem
                 );
@@ -1446,22 +1512,6 @@ if(
                     "Enviando conclusão ao TomTicket..."
                 );
 
-
-                console.log(
-                    "Ticket:",
-                    ticket_id
-                );
-
-
-                console.log(
-                    "Mensagem:",
-                    mensagem
-                );
-
-
-                // =================================================
-                // RESPONDE O MESMO CHAMADO
-                // =================================================
 
                 const resposta =
                     await fetch(
@@ -1484,7 +1534,7 @@ if(
                             },
 
                             body:
-                                dados.toString()
+                                dadosResposta.toString()
 
                         }
 
@@ -1539,7 +1589,7 @@ if(
 
 
                 // =================================================
-                // VERIFICAÇÃO
+                // VERIFICA RESPOSTA
                 // =================================================
 
                 if(
@@ -1580,7 +1630,168 @@ if(
 
 
                 // =================================================
-                // SUCESSO
+                // 2. FINALIZA O CHAMADO
+                // =================================================
+                //
+                // IMPORTANTE:
+                // Agora o chamado será realmente finalizado
+                // no TomTicket.
+                //
+                // =================================================
+
+                const dadosFinalizacao =
+                    new URLSearchParams();
+
+
+                dadosFinalizacao.append(
+                    "ticket_id",
+                    ticket_id
+                );
+
+
+                dadosFinalizacao.append(
+                    "message",
+                    mensagem
+                );
+
+
+                console.log(
+                    "Finalizando chamado no TomTicket..."
+                );
+
+
+                const respostaFinalizacao =
+                    await fetch(
+
+                        "https://api.tomticket.com/v2.0/ticket/finish",
+
+                        {
+
+                            method:
+                                "POST",
+
+                            headers: {
+
+                                "Content-Type":
+                                    "application/x-www-form-urlencoded",
+
+                                "Authorization":
+                                    `Bearer ${env.TOMTICKET_TOKEN}`
+
+                            },
+
+                            body:
+                                dadosFinalizacao.toString()
+
+                        }
+
+                    );
+
+
+                // =================================================
+                // LÊ FINALIZAÇÃO
+                // =================================================
+
+                const textoFinalizacao =
+                    await respostaFinalizacao.text();
+
+
+                let resultadoFinalizacao;
+
+
+                try {
+
+                    resultadoFinalizacao =
+                        JSON.parse(
+                            textoFinalizacao
+                        );
+
+                }
+                catch {
+
+                    resultadoFinalizacao = {
+
+                        resposta:
+                            textoFinalizacao
+
+                    };
+
+                }
+
+
+                console.log(
+                    "Status finalização:",
+                    respostaFinalizacao.status
+                );
+
+
+                console.log(
+                    "Resposta finalização:",
+                    JSON.stringify(
+                        resultadoFinalizacao,
+                        null,
+                        2
+                    )
+                );
+
+
+                // =================================================
+                // VERIFICA FINALIZAÇÃO
+                // =================================================
+
+                if(
+                    !respostaFinalizacao.ok ||
+                    resultadoFinalizacao.error === true ||
+                    resultadoFinalizacao.success === false
+                ){
+
+                    return respostaJSON(
+
+                        {
+                            sucesso: false,
+
+                            etapa:
+                                "finalizacao",
+
+                            mensagem:
+                                "A conclusão foi registrada, mas o TomTicket não conseguiu finalizar o chamado.",
+
+                            chamado_criado:
+                                true,
+
+                            conclusao_registrada:
+                                true,
+
+                            ticket_id:
+                                ticket_id,
+
+                            nome:
+                                nome,
+
+                            resposta:
+                                resultado,
+
+                            finalizacao: {
+
+                                http_status:
+                                    respostaFinalizacao.status,
+
+                                resposta:
+                                    resultadoFinalizacao
+
+                            }
+
+                        },
+
+                        500
+
+                    );
+
+                }
+
+
+                // =================================================
+                // SUCESSO FINAL
                 // =================================================
 
                 return respostaJSON({
@@ -1589,7 +1800,7 @@ if(
                         true,
 
                     mensagem:
-                        "Solicitação concluída com sucesso.",
+                        "Solicitação concluída e chamado finalizado com sucesso.",
 
                     ticket_id:
                         ticket_id,
@@ -1597,11 +1808,20 @@ if(
                     nome:
                         nome,
 
+                    conclusao_registrada:
+                        true,
+
+                    chamado_finalizado:
+                        true,
+
                     resposta_id:
                         resultado.id || null,
 
                     tomticket:
-                        resultado
+                        resultado,
+
+                    finalizacao:
+                        resultadoFinalizacao
 
                 });
 
