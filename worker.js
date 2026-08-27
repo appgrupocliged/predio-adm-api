@@ -387,17 +387,17 @@ export default {
 
 
                 // =================================================
-                // STATUS
+                // STATUS ATUAL
                 // =================================================
                 //
-                // A API do TomTicket retorna o status dentro
-                // dos dados do chamado.
+                // O TomTicket retorna o status atual em:
+                //
+                // data.current_status
                 //
                 // =================================================
 
                 const statusObjeto =
-                    dados.status ||
-                    dados.situation ||
+                    dados.current_status ||
                     null;
 
 
@@ -406,8 +406,6 @@ export default {
                         ? statusObjeto
                         : (
                             statusObjeto?.description ||
-                            statusObjeto?.name ||
-                            statusObjeto?.status ||
                             null
                         );
 
@@ -419,6 +417,43 @@ export default {
                             null
                         )
                         : null;
+
+
+                const statusApplyDate =
+                    typeof statusObjeto === "object"
+                        ? (
+                            statusObjeto?.apply_date ||
+                            null
+                        )
+                        : null;
+
+
+                console.log(
+                    "STATUS ATUAL TOMTICKET:",
+                    JSON.stringify(
+                        statusObjeto,
+                        null,
+                        2
+                    )
+                );
+
+
+                console.log(
+                    "Descrição do status:",
+                    status
+                );
+
+
+                console.log(
+                    "ID do status:",
+                    statusId
+                );
+
+
+                console.log(
+                    "Data aplicação status:",
+                    statusApplyDate
+                );
 
 
                 // =================================================
@@ -450,6 +485,9 @@ export default {
 
                     status_id:
                         statusId,
+
+                    status_apply_date:
+                        statusApplyDate,
 
                     subject:
                         dados.subject ||
