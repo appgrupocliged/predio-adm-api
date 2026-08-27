@@ -161,10 +161,9 @@ export default {
         // CONSULTA STATUS DO CHAMADO
         // ====================================================
         //
-        // O HTML utiliza esta rota para consultar o status
-        // atual diretamente no TomTicket.
+        // GET /status?id=ID_DO_CHAMADO
         //
-        // O token permanece protegido no Worker.
+        // Consulta diretamente o TomTicket.
         //
         // ====================================================
 
@@ -175,12 +174,22 @@ export default {
 
             try {
 
+                // =================================================
+                // PEGA ID PELA URL
+                // =================================================
+
                 const ticket_id =
                     String(
                         url.searchParams.get(
                             "id"
                         ) || ""
                     ).trim();
+
+
+                console.log(
+                    "Consulta de status recebida:",
+                    ticket_id
+                );
 
 
                 // =================================================
@@ -219,6 +228,7 @@ export default {
                         "TOMTICKET_TOKEN não configurado."
                     );
 
+
                     return respostaJSON(
 
                         {
@@ -236,7 +246,7 @@ export default {
 
 
                 // =================================================
-                // CONSULTA TOMTICKET
+                // CONSULTA CHAMADO NO TOMTICKET
                 // =================================================
 
                 const urlTomTicket =
@@ -247,7 +257,13 @@ export default {
                     );
 
 
-                const resposta =
+                console.log(
+                    "Consultando TomTicket:",
+                    urlTomTicket
+                );
+
+
+                const respostaStatus =
                     await fetch(
 
                         urlTomTicket,
@@ -276,27 +292,27 @@ export default {
                 // LÊ RESPOSTA
                 // =================================================
 
-                const texto =
-                    await resposta.text();
+                const textoStatus =
+                    await respostaStatus.text();
 
 
-                let resultado;
+                let dadosStatus;
 
 
                 try {
 
-                    resultado =
+                    dadosStatus =
                         JSON.parse(
-                            texto
+                            textoStatus
                         );
 
                 }
                 catch {
 
-                    resultado = {
+                    dadosStatus = {
 
                         resposta:
-                            texto
+                            textoStatus
 
                     };
 
@@ -304,15 +320,15 @@ export default {
 
 
                 console.log(
-                    "Status consulta:",
-                    resposta.status
+                    "Status consulta TomTicket:",
+                    respostaStatus.status
                 );
 
 
                 console.log(
                     "Resposta consulta:",
                     JSON.stringify(
-                        resultado,
+                        dadosStatus,
                         null,
                         2
                     )
@@ -320,36 +336,40 @@ export default {
 
 
                 // =================================================
-                // ERRO
+                // VERIFICA RESPOSTA
                 // =================================================
 
                 if(
-                    !resposta.ok ||
-                    resultado.error === true ||
-                    resultado.success === false
+                    !respostaStatus.ok ||
+                    dadosStatus.error === true ||
+                    dadosStatus.success === false
                 ){
 
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
+                            etapa:
+                                "consulta_status",
+
                             mensagem:
-                                "Não foi possível consultar o chamado.",
+                                "Não foi possível consultar o chamado no TomTicket.",
 
                             ticket_id:
                                 ticket_id,
 
                             status_tomticket:
-                                resposta.status,
+                                respostaStatus.status,
 
-                            tomticket:
-                                resultado
+                            resposta_tomticket:
+                                dadosStatus
 
                         },
 
-                        resposta.status >= 400
-                            ? resposta.status
+                        respostaStatus.status >= 400
+                            ? respostaStatus.status
                             : 500
 
                     );
@@ -358,76 +378,60 @@ export default {
 
 
                 // =================================================
-                // DADOS DO CHAMADO
+                // PEGA DADOS DO CHAMADO
                 // =================================================
 
-                const dadosTicket =
-                    resultado.data ||
-                    resultado;
+                const dados =
+                    dadosStatus.data ||
+                    dadosStatus;
 
 
                 // =================================================
-                // IDENTIFICA SITUAÇÃO
+                // STATUS
+                // =================================================
+                //
+                // A API do TomTicket retorna o status dentro
+                // dos dados do chamado.
+                //
                 // =================================================
 
-                /*
-                O TomTicket retorna informações do status
-                dentro dos detalhes do chamado.
-
-                Mantemos os dados originais completos para o
-                HTML poder trabalhar com eles.
-                */
-
-                let statusAtual =
+                const statusObjeto =
+                    dados.status ||
+                    dados.situation ||
                     null;
 
 
-                if(
-                    dadosTicket.status
-                ){
+                const status =
+                    typeof statusObjeto === "string"
+                        ? statusObjeto
+                        : (
+                            statusObjeto?.description ||
+                            statusObjeto?.name ||
+                            statusObjeto?.status ||
+                            null
+                        );
 
-                    statusAtual =
-                        dadosTicket.status;
 
-                }
-                else if(
-                    dadosTicket.status_name
-                ){
-
-                    statusAtual =
-                        dadosTicket.status_name;
-
-                }
-                else if(
-                    dadosTicket.status_description
-                ){
-
-                    statusAtual =
-                        dadosTicket.status_description;
-
-                }
+                const statusId =
+                    typeof statusObjeto === "object"
+                        ? (
+                            statusObjeto?.id ||
+                            null
+                        )
+                        : null;
 
 
                 // =================================================
-                // VERIFICA ENCERRAMENTO
+                // PROTOCOLO
                 // =================================================
 
-                const encerrado =
-                    !!dadosTicket.end;
-
-
-                if(
-                    encerrado
-                ){
-
-                    statusAtual =
-                        "FINALIZADO";
-
-                }
+                const protocol =
+                    dados.protocol ||
+                    null;
 
 
                 // =================================================
-                // RESPOSTA
+                // RETORNO PARA O INDEX.HTML
                 // =================================================
 
                 return respostaJSON({
@@ -438,23 +442,29 @@ export default {
                     ticket_id:
                         ticket_id,
 
+                    protocol:
+                        protocol,
+
                     status:
-                        statusAtual,
+                        status,
 
-                    finalizado:
-                        encerrado,
+                    status_id:
+                        statusId,
 
-                    ticket:
-                        dadosTicket
+                    subject:
+                        dados.subject ||
+                        null,
+
+                    data:
+                        dados
 
                 });
-
 
             }
             catch(error){
 
                 console.error(
-                    "ERRO NA CONSULTA DE STATUS:",
+                    "ERRO AO CONSULTAR STATUS:",
                     error
                 );
 
@@ -462,6 +472,7 @@ export default {
                 return respostaJSON(
 
                     {
+
                         sucesso: false,
 
                         etapa:
@@ -472,6 +483,7 @@ export default {
 
                         erro:
                             error.message
+
                     },
 
                     500
@@ -1489,20 +1501,20 @@ export default {
 
 
                 // =================================================
-                // 1. REGISTRA A CONCLUSÃO NO CHAMADO
+                // DADOS DA RESPOSTA
                 // =================================================
 
-                const dadosResposta =
+                const dados =
                     new URLSearchParams();
 
 
-                dadosResposta.append(
+                dados.append(
                     "ticket_id",
                     ticket_id
                 );
 
 
-                dadosResposta.append(
+                dados.append(
                     "message",
                     mensagem
                 );
@@ -1512,6 +1524,22 @@ export default {
                     "Enviando conclusão ao TomTicket..."
                 );
 
+
+                console.log(
+                    "Ticket:",
+                    ticket_id
+                );
+
+
+                console.log(
+                    "Mensagem:",
+                    mensagem
+                );
+
+
+                // =================================================
+                // RESPONDE O MESMO CHAMADO
+                // =================================================
 
                 const resposta =
                     await fetch(
@@ -1534,7 +1562,7 @@ export default {
                             },
 
                             body:
-                                dadosResposta.toString()
+                                dados.toString()
 
                         }
 
@@ -1589,7 +1617,7 @@ export default {
 
 
                 // =================================================
-                // VERIFICA RESPOSTA
+                // VERIFICAÇÃO
                 // =================================================
 
                 if(
@@ -1630,168 +1658,7 @@ export default {
 
 
                 // =================================================
-                // 2. FINALIZA O CHAMADO
-                // =================================================
-                //
-                // IMPORTANTE:
-                // Agora o chamado será realmente finalizado
-                // no TomTicket.
-                //
-                // =================================================
-
-                const dadosFinalizacao =
-                    new URLSearchParams();
-
-
-                dadosFinalizacao.append(
-                    "ticket_id",
-                    ticket_id
-                );
-
-
-                dadosFinalizacao.append(
-                    "message",
-                    mensagem
-                );
-
-
-                console.log(
-                    "Finalizando chamado no TomTicket..."
-                );
-
-
-                const respostaFinalizacao =
-                    await fetch(
-
-                        "https://api.tomticket.com/v2.0/ticket/finish",
-
-                        {
-
-                            method:
-                                "POST",
-
-                            headers: {
-
-                                "Content-Type":
-                                    "application/x-www-form-urlencoded",
-
-                                "Authorization":
-                                    `Bearer ${env.TOMTICKET_TOKEN}`
-
-                            },
-
-                            body:
-                                dadosFinalizacao.toString()
-
-                        }
-
-                    );
-
-
-                // =================================================
-                // LÊ FINALIZAÇÃO
-                // =================================================
-
-                const textoFinalizacao =
-                    await respostaFinalizacao.text();
-
-
-                let resultadoFinalizacao;
-
-
-                try {
-
-                    resultadoFinalizacao =
-                        JSON.parse(
-                            textoFinalizacao
-                        );
-
-                }
-                catch {
-
-                    resultadoFinalizacao = {
-
-                        resposta:
-                            textoFinalizacao
-
-                    };
-
-                }
-
-
-                console.log(
-                    "Status finalização:",
-                    respostaFinalizacao.status
-                );
-
-
-                console.log(
-                    "Resposta finalização:",
-                    JSON.stringify(
-                        resultadoFinalizacao,
-                        null,
-                        2
-                    )
-                );
-
-
-                // =================================================
-                // VERIFICA FINALIZAÇÃO
-                // =================================================
-
-                if(
-                    !respostaFinalizacao.ok ||
-                    resultadoFinalizacao.error === true ||
-                    resultadoFinalizacao.success === false
-                ){
-
-                    return respostaJSON(
-
-                        {
-                            sucesso: false,
-
-                            etapa:
-                                "finalizacao",
-
-                            mensagem:
-                                "A conclusão foi registrada, mas o TomTicket não conseguiu finalizar o chamado.",
-
-                            chamado_criado:
-                                true,
-
-                            conclusao_registrada:
-                                true,
-
-                            ticket_id:
-                                ticket_id,
-
-                            nome:
-                                nome,
-
-                            resposta:
-                                resultado,
-
-                            finalizacao: {
-
-                                http_status:
-                                    respostaFinalizacao.status,
-
-                                resposta:
-                                    resultadoFinalizacao
-
-                            }
-
-                        },
-
-                        500
-
-                    );
-
-                }
-
-
-                // =================================================
-                // SUCESSO FINAL
+                // SUCESSO
                 // =================================================
 
                 return respostaJSON({
@@ -1800,7 +1667,7 @@ export default {
                         true,
 
                     mensagem:
-                        "Solicitação concluída e chamado finalizado com sucesso.",
+                        "Solicitação concluída com sucesso.",
 
                     ticket_id:
                         ticket_id,
@@ -1808,20 +1675,11 @@ export default {
                     nome:
                         nome,
 
-                    conclusao_registrada:
-                        true,
-
-                    chamado_finalizado:
-                        true,
-
                     resposta_id:
                         resultado.id || null,
 
                     tomticket:
-                        resultado,
-
-                    finalizacao:
-                        resultadoFinalizacao
+                        resultado
 
                 });
 
