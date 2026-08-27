@@ -163,7 +163,11 @@ export default {
         //
         // GET /status?id=ID_DO_CHAMADO
         //
-        // Consulta diretamente o TomTicket.
+        // O TomTicket retorna:
+        //
+        // data.situation       = situação atual
+        // data.current_status  = status atual
+        // data.status          = histórico de status
         //
         // ====================================================
 
@@ -175,7 +179,7 @@ export default {
             try {
 
                 // =================================================
-                // PEGA ID PELA URL
+                // ID
                 // =================================================
 
                 const ticket_id =
@@ -187,7 +191,15 @@ export default {
 
 
                 console.log(
-                    "Consulta de status recebida:",
+                    "=========================================="
+                );
+
+                console.log(
+                    "CONSULTA DE STATUS"
+                );
+
+                console.log(
+                    "Ticket:",
                     ticket_id
                 );
 
@@ -246,7 +258,7 @@ export default {
 
 
                 // =================================================
-                // CONSULTA CHAMADO NO TOMTICKET
+                // CONSULTA TOMTICKET
                 // =================================================
 
                 const urlTomTicket =
@@ -254,11 +266,14 @@ export default {
                     "?ticket_id=" +
                     encodeURIComponent(
                         ticket_id
-                    );
+                    ) +
+                    "&show_stopwatch=0" +
+                    "&show_staggered_tickets=0" +
+                    "&show_tags=0";
 
 
                 console.log(
-                    "Consultando TomTicket:",
+                    "URL TomTicket:",
                     urlTomTicket
                 );
 
@@ -320,13 +335,13 @@ export default {
 
 
                 console.log(
-                    "Status consulta TomTicket:",
+                    "HTTP TomTicket:",
                     respostaStatus.status
                 );
 
 
                 console.log(
-                    "Resposta consulta:",
+                    "Resposta TomTicket:",
                     JSON.stringify(
                         dadosStatus,
                         null,
@@ -336,7 +351,7 @@ export default {
 
 
                 // =================================================
-                // VERIFICA RESPOSTA
+                // VERIFICA ERRO
                 // =================================================
 
                 if(
@@ -378,7 +393,7 @@ export default {
 
 
                 // =================================================
-                // PEGA DADOS DO CHAMADO
+                // DADOS DO CHAMADO
                 // =================================================
 
                 const dados =
@@ -387,73 +402,203 @@ export default {
 
 
                 // =================================================
-                // STATUS ATUAL
+                // SITUAÇÃO ATUAL
                 // =================================================
                 //
-                // O TomTicket retorna o status atual em:
+                // Exemplo:
                 //
-                // data.current_status
+                // situation: {
+                //     id: 2,
+                //     description:
+                //       "Respondido, aguardando resposta do cliente"
+                // }
                 //
                 // =================================================
 
-                const statusObjeto =
+                const situation =
+                    dados.situation ||
+                    null;
+
+
+                const situationId =
+                    situation &&
+                    typeof situation === "object"
+                        ? (
+                            situation.id ??
+                            null
+                        )
+                        : null;
+
+
+                const situationDescription =
+                    situation &&
+                    typeof situation === "object"
+                        ? (
+                            situation.description ||
+                            null
+                        )
+                        : (
+                            typeof situation === "string"
+                                ? situation
+                                : null
+                        );
+
+
+                const situationApplyDate =
+                    situation &&
+                    typeof situation === "object"
+                        ? (
+                            situation.apply_date ||
+                            null
+                        )
+                        : null;
+
+
+                // =================================================
+                // STATUS ATUAL
+                // =================================================
+                //
+                // ATENÇÃO:
+                //
+                // O TomTicket possui:
+                //
+                // data.current_status = status atual
+                //
+                // data.status = histórico
+                //
+                // =================================================
+
+                const currentStatus =
                     dados.current_status ||
                     null;
 
 
-                const status =
-                    typeof statusObjeto === "string"
-                        ? statusObjeto
-                        : (
-                            statusObjeto?.description ||
+                const statusId =
+                    currentStatus &&
+                    typeof currentStatus === "object"
+                        ? (
+                            currentStatus.id ??
                             null
+                        )
+                        : null;
+
+
+                const statusDescription =
+                    currentStatus &&
+                    typeof currentStatus === "object"
+                        ? (
+                            currentStatus.description ||
+                            null
+                        )
+                        : (
+                            typeof currentStatus === "string"
+                                ? currentStatus
+                                : null
                         );
 
 
-                const statusId =
-                    typeof statusObjeto === "object"
-                        ? (
-                            statusObjeto?.id ||
-                            null
-                        )
-                        : null;
-
-
                 const statusApplyDate =
-                    typeof statusObjeto === "object"
+                    currentStatus &&
+                    typeof currentStatus === "object"
                         ? (
-                            statusObjeto?.apply_date ||
+                            currentStatus.apply_date ||
                             null
                         )
                         : null;
 
 
-                console.log(
-                    "STATUS ATUAL TOMTICKET:",
-                    JSON.stringify(
-                        statusObjeto,
-                        null,
-                        2
-                    )
-                );
+                // =================================================
+                // FALLBACK
+                // =================================================
+                //
+                // Caso alguma conta do TomTicket retorne
+                // estrutura diferente, tentamos também:
+                //
+                // dados.status
+                //
+                // mas somente se NÃO existir current_status.
+                //
+                // =================================================
+
+                let statusFinal =
+                    statusDescription;
 
 
-                console.log(
-                    "Descrição do status:",
-                    status
-                );
+                let statusIdFinal =
+                    statusId;
 
 
-                console.log(
-                    "ID do status:",
-                    statusId
-                );
+                let statusDateFinal =
+                    statusApplyDate;
 
 
-                console.log(
-                    "Data aplicação status:",
-                    statusApplyDate
-                );
+                if(
+                    !statusFinal &&
+                    dados.status
+                ){
+
+                    if(
+                        Array.isArray(
+                            dados.status
+                        )
+                    ){
+
+                        const ultimoStatus =
+                            dados.status[
+                                dados.status.length - 1
+                            ];
+
+
+                        if(
+                            ultimoStatus
+                        ){
+
+                            statusFinal =
+                                ultimoStatus.description ||
+                                null;
+
+
+                            statusIdFinal =
+                                ultimoStatus.id ??
+                                null;
+
+
+                            statusDateFinal =
+                                ultimoStatus.apply_date ||
+                                null;
+
+                        }
+
+                    }
+                    else if(
+                        typeof dados.status === "object"
+                    ){
+
+                        statusFinal =
+                            dados.status.description ||
+                            null;
+
+
+                        statusIdFinal =
+                            dados.status.id ??
+                            null;
+
+
+                        statusDateFinal =
+                            dados.status.apply_date ||
+                            null;
+
+                    }
+                    else if(
+                        typeof dados.status === "string"
+                    ){
+
+                        statusFinal =
+                            dados.status;
+
+                    }
+
+                }
 
 
                 // =================================================
@@ -466,7 +611,45 @@ export default {
 
 
                 // =================================================
-                // RETORNO PARA O INDEX.HTML
+                // LOG PRINCIPAL
+                // =================================================
+
+                console.log(
+                    "------------------------------------------"
+                );
+
+                console.log(
+                    "STATUS ATUAL:",
+                    statusFinal
+                );
+
+                console.log(
+                    "STATUS ID:",
+                    statusIdFinal
+                );
+
+                console.log(
+                    "STATUS DATA:",
+                    statusDateFinal
+                );
+
+                console.log(
+                    "SITUAÇÃO:",
+                    situationDescription
+                );
+
+                console.log(
+                    "SITUAÇÃO ID:",
+                    situationId
+                );
+
+                console.log(
+                    "------------------------------------------"
+                );
+
+
+                // =================================================
+                // RETORNO PARA O INDEX
                 // =================================================
 
                 return respostaJSON({
@@ -481,13 +664,22 @@ export default {
                         protocol,
 
                     status:
-                        status,
+                        statusFinal,
 
                     status_id:
-                        statusId,
+                        statusIdFinal,
 
                     status_apply_date:
-                        statusApplyDate,
+                        statusDateFinal,
+
+                    situation:
+                        situationDescription,
+
+                    situation_id:
+                        situationId,
+
+                    situation_apply_date:
+                        situationApplyDate,
 
                     subject:
                         dados.subject ||
@@ -543,7 +735,6 @@ export default {
         ){
 
             try {
-
 
                 // =================================================
                 // RECEBE JSON
@@ -628,6 +819,7 @@ export default {
 
                             codigo_recebido:
                                 codigo
+
                         },
 
                         400
@@ -675,7 +867,9 @@ export default {
 
                                 message_recebido:
                                     !!message
+
                             }
+
                         },
 
                         400
@@ -696,6 +890,7 @@ export default {
                     console.error(
                         "TOMTICKET_TOKEN não configurado."
                     );
+
 
                     return respostaJSON(
 
@@ -808,27 +1003,12 @@ export default {
 
 
                 console.log(
-                    "Criando chamado:"
-                );
-
-                console.log(
-                    "Código:",
-                    codigo
-                );
-
-                console.log(
-                    "Local:",
-                    local
-                );
-
-                console.log(
-                    "Assunto:",
-                    assuntoOficial
+                    "Criando chamado..."
                 );
 
 
                 // =================================================
-                // 1. CRIA O CHAMADO
+                // 1. CRIA CHAMADO
                 // =================================================
 
                 const respostaCriacao =
@@ -847,7 +1027,10 @@ export default {
                                     "application/x-www-form-urlencoded",
 
                                 "Authorization":
-                                    `Bearer ${env.TOMTICKET_TOKEN}`
+                                    `Bearer ${env.TOMTICKET_TOKEN}`,
+
+                                "Accept":
+                                    "application/json"
 
                             },
 
@@ -860,7 +1043,7 @@ export default {
 
 
                 // =================================================
-                // LÊ RESPOSTA DA CRIAÇÃO
+                // LÊ CRIAÇÃO
                 // =================================================
 
                 const textoCriacao =
@@ -919,6 +1102,7 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             etapa:
@@ -932,6 +1116,7 @@ export default {
 
                             resposta_tomticket:
                                 dadosCriacao
+
                         },
 
                         500
@@ -942,7 +1127,7 @@ export default {
 
 
                 // =================================================
-                // PEGA ID DO CHAMADO
+                // PEGA ID
                 // =================================================
 
                 const ticket_id =
@@ -963,6 +1148,7 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             etapa:
@@ -973,6 +1159,7 @@ export default {
 
                             tomticket:
                                 dadosCriacao
+
                         },
 
                         500
@@ -989,7 +1176,7 @@ export default {
 
 
                 // =================================================
-                // 2. GERA LINK DE CONCLUSÃO
+                // 2. LINK DE CONCLUSÃO
                 // =================================================
 
                 const linkConclusao =
@@ -1007,7 +1194,7 @@ export default {
 
 
                 // =================================================
-                // 3. ENVIA LINK PARA O MESMO CHAMADO
+                // 3. ENVIA LINK
                 // =================================================
 
                 const dadosLink =
@@ -1027,11 +1214,7 @@ export default {
 
                     "🔗 CONCLUIR SOLICITAÇÃO:\n\n" +
                     linkConclusao
-                );
 
-
-                console.log(
-                    "Enviando link de conclusão ao chamado..."
                 );
 
 
@@ -1051,7 +1234,10 @@ export default {
                                     "application/x-www-form-urlencoded",
 
                                 "Authorization":
-                                    `Bearer ${env.TOMTICKET_TOKEN}`
+                                    `Bearer ${env.TOMTICKET_TOKEN}`,
+
+                                "Accept":
+                                    "application/json"
 
                             },
 
@@ -1064,7 +1250,7 @@ export default {
 
 
                 // =================================================
-                // LÊ RESPOSTA DO LINK
+                // LÊ LINK
                 // =================================================
 
                 const textoLink =
@@ -1123,6 +1309,7 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             etapa:
@@ -1148,6 +1335,7 @@ export default {
 
                             resposta_tomticket:
                                 dadosLinkResultado
+
                         },
 
                         500
@@ -1179,11 +1367,6 @@ export default {
                 );
 
 
-                console.log(
-                    "Transferindo chamado..."
-                );
-
-
                 const respostaTransferencia =
                     await fetch(
 
@@ -1200,7 +1383,10 @@ export default {
                                     "application/x-www-form-urlencoded",
 
                                 "Authorization":
-                                    `Bearer ${env.TOMTICKET_TOKEN}`
+                                    `Bearer ${env.TOMTICKET_TOKEN}`,
+
+                                "Accept":
+                                    "application/json"
 
                             },
 
@@ -1279,6 +1465,7 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             etapa:
@@ -1315,7 +1502,9 @@ export default {
 
                                 resposta:
                                     dadosTransferencia
+
                             }
+
                         },
 
                         500
@@ -1326,7 +1515,7 @@ export default {
 
 
                 // =================================================
-                // SUCESSO FINAL
+                // SUCESSO
                 // =================================================
 
                 return respostaJSON({
@@ -1371,6 +1560,7 @@ export default {
 
                         resposta:
                             dadosTransferencia
+
                     }
 
                 });
@@ -1388,6 +1578,7 @@ export default {
                 return respostaJSON(
 
                     {
+
                         sucesso: false,
 
                         etapa:
@@ -1398,6 +1589,7 @@ export default {
 
                         erro:
                             error.message
+
                     },
 
                     500
@@ -1419,7 +1611,6 @@ export default {
         ){
 
             try {
-
 
                 // =================================================
                 // RECEBE JSON
@@ -1466,10 +1657,12 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
                                 "ID do chamado não informado."
+
                         },
 
                         400
@@ -1486,10 +1679,12 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
                                 "Nome da colaboradora não informado."
+
                         },
 
                         400
@@ -1507,18 +1702,15 @@ export default {
                     !env.TOMTICKET_TOKEN
                 ){
 
-                    console.error(
-                        "TOMTICKET_TOKEN não configurado."
-                    );
-
-
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
                                 "Token do TomTicket não configurado na API."
+
                         },
 
                         500
@@ -1529,7 +1721,7 @@ export default {
 
 
                 // =================================================
-                // MENSAGEM DE CONCLUSÃO
+                // MENSAGEM
                 // =================================================
 
                 const mensagem =
@@ -1539,7 +1731,7 @@ export default {
 
 
                 // =================================================
-                // DADOS DA RESPOSTA
+                // DADOS
                 // =================================================
 
                 const dados =
@@ -1558,25 +1750,8 @@ export default {
                 );
 
 
-                console.log(
-                    "Enviando conclusão ao TomTicket..."
-                );
-
-
-                console.log(
-                    "Ticket:",
-                    ticket_id
-                );
-
-
-                console.log(
-                    "Mensagem:",
-                    mensagem
-                );
-
-
                 // =================================================
-                // RESPONDE O MESMO CHAMADO
+                // RESPONDE CHAMADO
                 // =================================================
 
                 const resposta =
@@ -1595,7 +1770,10 @@ export default {
                                     "application/x-www-form-urlencoded",
 
                                 "Authorization":
-                                    `Bearer ${env.TOMTICKET_TOKEN}`
+                                    `Bearer ${env.TOMTICKET_TOKEN}`,
+
+                                "Accept":
+                                    "application/json"
 
                             },
 
@@ -1655,7 +1833,7 @@ export default {
 
 
                 // =================================================
-                // VERIFICAÇÃO
+                // VERIFICA
                 // =================================================
 
                 if(
@@ -1667,6 +1845,7 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             etapa:
@@ -1686,6 +1865,7 @@ export default {
 
                             texto_tomticket:
                                 texto
+
                         },
 
                         500
@@ -1734,6 +1914,7 @@ export default {
                 return respostaJSON(
 
                     {
+
                         sucesso: false,
 
                         etapa:
@@ -1744,6 +1925,7 @@ export default {
 
                         erro:
                             error.message
+
                     },
 
                     500
@@ -1762,10 +1944,12 @@ export default {
         return respostaJSON(
 
             {
+
                 sucesso: false,
 
                 mensagem:
                     "Rota não encontrada."
+
             },
 
             404
