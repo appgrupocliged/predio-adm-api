@@ -951,6 +951,351 @@ export default {
 
         }
 
+                // ========================================================
+        // CONCLUSÃO DA SOLICITAÇÃO
+        // ========================================================
+
+        if(
+            request.method === "POST" &&
+            url.pathname === "/concluir"
+        ){
+
+            try {
+
+                // =================================================
+                // RECEBE JSON
+                // =================================================
+
+                const body =
+                    await request.json();
+
+
+                const ticket_id =
+                    String(
+                        body.ticket_id || ""
+                    ).trim();
+
+
+                const nome =
+                    String(
+                        body.nome || ""
+                    ).trim();
+
+
+                console.log(
+                    "Conclusão recebida:",
+                    JSON.stringify({
+                        ticket_id,
+                        nome
+                    })
+                );
+
+
+                // =================================================
+                // VALIDAÇÃO
+                // =================================================
+
+                if(
+                    !ticket_id
+                ){
+
+                    return respostaJSON(
+
+                        {
+                            sucesso:false,
+
+                            mensagem:
+                                "ID do chamado não informado."
+                        },
+
+                        400
+
+                    );
+
+                }
+
+
+                if(
+                    nome.length < 2
+                ){
+
+                    return respostaJSON(
+
+                        {
+                            sucesso:false,
+
+                            mensagem:
+                                "Nome da colaboradora não informado."
+                        },
+
+                        400
+
+                    );
+
+                }
+
+
+                // =================================================
+                // TOKEN
+                // =================================================
+
+                if(
+                    !env.TOMTICKET_TOKEN
+                ){
+
+                    console.error(
+                        "TOMTICKET_TOKEN não configurado."
+                    );
+
+
+                    return respostaJSON(
+
+                        {
+                            sucesso:false,
+
+                            mensagem:
+                                "Token do TomTicket não configurado na API."
+                        },
+
+                        500
+
+                    );
+
+                }
+
+
+                // =================================================
+                // MENSAGEM DE CONCLUSÃO
+                // =================================================
+
+                const mensagem =
+
+                    "Solicitação concluída.\n\n" +
+
+                    "Realizado por: " +
+
+                    nome;
+
+
+                // =================================================
+                // DADOS TOMTICKET
+                // =================================================
+
+                const dados =
+                    new URLSearchParams();
+
+
+                dados.append(
+                    "ticket_id",
+                    ticket_id
+                );
+
+
+                dados.append(
+                    "message",
+                    mensagem
+                );
+
+
+                console.log(
+                    "Enviando conclusão ao TomTicket..."
+                );
+
+
+                console.log(
+                    "Ticket:",
+                    ticket_id
+                );
+
+
+                console.log(
+                    "Mensagem:",
+                    mensagem
+                );
+
+
+                // =================================================
+                // RESPONDE O MESMO CHAMADO
+                // =================================================
+
+                const resposta =
+                    await fetch(
+
+                        "https://api.tomticket.com/v2.0/ticket/reply/customer",
+
+                        {
+
+                            method:
+                                "POST",
+
+                            headers: {
+
+                                "Content-Type":
+                                    "application/x-www-form-urlencoded",
+
+                                "Authorization":
+                                    `Bearer ${env.TOMTICKET_TOKEN}`
+
+                            },
+
+                            body:
+                                dados.toString()
+
+                        }
+
+                    );
+
+
+                // =================================================
+                // LÊ RESPOSTA DO TOMTICKET
+                // =================================================
+
+                const texto =
+                    await resposta.text();
+
+
+                let resultado;
+
+
+                try {
+
+                    resultado =
+                        JSON.parse(
+                            texto
+                        );
+
+                }
+                catch {
+
+                    resultado = {
+
+                        resposta:
+                            texto
+
+                    };
+
+                }
+
+
+                console.log(
+                    "Status resposta TomTicket:",
+                    resposta.status
+                );
+
+
+                console.log(
+                    "Resposta TomTicket:",
+                    JSON.stringify(
+                        resultado,
+                        null,
+                        2
+                    )
+                );
+
+
+                // =================================================
+                // VERIFICAÇÃO
+                // =================================================
+
+                if(
+                    !resposta.ok ||
+                    resultado.error === true ||
+                    resultado.success === false
+                ){
+
+                    return respostaJSON(
+
+                        {
+
+                            sucesso:false,
+
+                            etapa:
+                                "resposta_tomticket",
+
+                            mensagem:
+                                "TomTicket recusou a conclusão.",
+
+                            ticket_id:
+                                ticket_id,
+
+                            status_tomticket:
+                                resposta.status,
+
+                            resposta_tomticket:
+                                resultado,
+
+                            texto_tomticket:
+                                texto
+
+                        },
+
+                        500
+
+                    );
+
+                }
+
+
+                // =================================================
+                // SUCESSO
+                // =================================================
+
+                return respostaJSON({
+
+                    sucesso:
+                        true,
+
+                    mensagem:
+                        "Solicitação concluída com sucesso.",
+
+                    ticket_id:
+                        ticket_id,
+
+                    nome:
+                        nome,
+
+                    resposta_id:
+                        resultado.id || null,
+
+                    tomticket:
+                        resultado
+
+                });
+
+
+            }
+            catch(error){
+
+                console.error(
+                    "ERRO NA CONCLUSÃO:",
+                    error
+                );
+
+
+                return respostaJSON(
+
+                    {
+
+                        sucesso:false,
+
+                        etapa:
+                            "concluir",
+
+                        mensagem:
+                            "Erro interno ao processar a conclusão.",
+
+                        erro:
+                            error.message
+
+                    },
+
+                    500
+
+                );
+
+            }
+
+        }
 
         // ========================================================
         // ROTA NÃO ENCONTRADA
