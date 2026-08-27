@@ -9,52 +9,27 @@ const CORS_HEADERS = {
 // ============================================================
 // MAPA OFICIAL DOS QR CODES
 // ============================================================
-//
-// ESTE MAPA PRECISA SER IGUAL AO MAPA DO HTML.
-//
-// B.XX = código oficial
-// Nome = nome oficial utilizado no chamado
-//
-// ============================================================
 
 const LOCAIS_QR = {
 
     "B.01": "DIRETORIA",
-
     "B.02": "CORREDOR AUTORIZAÇÃO",
-
     "B.03": "FINANCEIRO",
-
     "B.04": "RH",
-
     "B.05": "COMPRAS",
-
     "B.06": "ESTOQUE",
-
     "B.07": "ESTOQUE",
-
     "B.08": "CONTROLADORIA",
-
     "B.09": "COWORKING",
-
     "B.10": "CORREDOR REUNIÃO",
-
     "B.11": "D.P",
-
     "B.12": "CORREDOR CALL CENTER",
-
     "B.13": "COMFORT ADM",
-
     "B.14": "T.I",
-
     "B.15": "CTA ADM",
-
     "B.16": "MARKETING / INFRAESTRUTURA",
-
     "B.17": "FATURAMENTO",
-
     "B.18": "AUDITORIA",
-
     "B.19": "QUALIDADE"
 
 };
@@ -69,6 +44,25 @@ const DEPARTMENT_ID =
 
 const CATEGORY_ID =
     "52d32a3af1d7fd87c277f7aec520b38b";
+
+
+// ============================================================
+// URL DO CONCLUIR.HTML
+// ============================================================
+
+const CONCLUIR_URL =
+    "https://appgrupocliged.github.io/predio-adm-api/concluir.html";
+
+
+// ============================================================
+// CLIENTE TOMTICKET
+// ============================================================
+
+const CUSTOMER_ID =
+    "appgrupocliged@gmail.com";
+
+const CUSTOMER_ID_TYPE =
+    "E";
 
 
 // ============================================================
@@ -90,7 +84,6 @@ function respostaJSON(
 
         {
             status,
-
             headers:
                 CORS_HEADERS
         }
@@ -122,7 +115,7 @@ export default {
             return new Response(
                 null,
                 {
-                    status:204,
+                    status: 204,
                     headers:
                         CORS_HEADERS
                 }
@@ -185,29 +178,17 @@ export default {
 
 
                 const {
-
                     local_code,
-
                     category_id,
-
                     subject,
-
                     message,
-
                     priority
-
                 } = body;
 
 
-                // =================================================
-                // LOG DO RECEBIMENTO
-                // =================================================
-
                 console.log(
                     "Payload recebido:",
-                    JSON.stringify(
-                        body
-                    )
+                    JSON.stringify(body)
                 );
 
 
@@ -222,12 +203,10 @@ export default {
                     return respostaJSON(
 
                         {
-
-                            sucesso:false,
+                            sucesso: false,
 
                             mensagem:
                                 "Código do local não informado."
-
                         },
 
                         400
@@ -259,10 +238,6 @@ export default {
                     ];
 
 
-                // =================================================
-                // CÓDIGO INVÁLIDO
-                // =================================================
-
                 if(
                     !local
                 ){
@@ -270,15 +245,13 @@ export default {
                     return respostaJSON(
 
                         {
-
-                            sucesso:false,
+                            sucesso: false,
 
                             mensagem:
                                 "Código de local inválido.",
 
                             codigo_recebido:
                                 codigo
-
                         },
 
                         400
@@ -293,27 +266,10 @@ export default {
                     codigo
                 );
 
-
                 console.log(
                     "Local oficial:",
                     local
                 );
-
-
-                // =================================================
-                // CLIENTE TOMTICKET
-                // =================================================
-                //
-                // Não utiliza o e-mail pessoal
-                // moreiradasilvafabio31@gmail.com.
-                //
-                // =================================================
-
-                const customer_id =
-                    "appgrupocliged@gmail.com";
-
-                const customer_id_type =
-                    "E";
 
 
                 // =================================================
@@ -328,8 +284,7 @@ export default {
                     return respostaJSON(
 
                         {
-
-                            sucesso:false,
+                            sucesso: false,
 
                             mensagem:
                                 "Dados obrigatórios não informados.",
@@ -344,9 +299,7 @@ export default {
 
                                 message_recebido:
                                     !!message
-
                             }
-
                         },
 
                         400
@@ -368,16 +321,13 @@ export default {
                         "TOMTICKET_TOKEN não configurado."
                     );
 
-
                     return respostaJSON(
 
                         {
-
-                            sucesso:false,
+                            sucesso: false,
 
                             mensagem:
                                 "Token do TomTicket não configurado na API."
-
                         },
 
                         500
@@ -390,14 +340,6 @@ export default {
                 // =================================================
                 // ASSUNTO OFICIAL
                 // =================================================
-                //
-                // O navegador não decide o nome.
-                //
-                // B.17 sempre será FATURAMENTO.
-                // B.18 sempre será AUDITORIA.
-                // B.19 sempre será QUALIDADE.
-                //
-                // =================================================
 
                 const assuntoOficial =
                     "Solicitação - " +
@@ -405,7 +347,7 @@ export default {
 
 
                 // =================================================
-                // MENSAGEM
+                // MENSAGEM OFICIAL
                 // =================================================
 
                 let mensagemRecebida =
@@ -414,11 +356,6 @@ export default {
                     );
 
 
-                /*
-                Caso venha "\\n",
-                transforma em quebra real.
-                */
-
                 mensagemRecebida =
                     mensagemRecebida.replace(
                         /\\n/g,
@@ -426,22 +363,12 @@ export default {
                     );
 
 
-                /*
-                Remove eventual "Local:" antigo
-                enviado pelo navegador.
-
-                */
-
                 mensagemRecebida =
                     mensagemRecebida.replace(
                         /^Local:.*\n*/i,
                         ""
                     );
 
-
-                /*
-                Monta mensagem oficial.
-                */
 
                 const mensagemOficial =
                     "Local: " +
@@ -460,13 +387,13 @@ export default {
 
                 dados.append(
                     "customer_id",
-                    customer_id
+                    CUSTOMER_ID
                 );
 
 
                 dados.append(
                     "customer_id_type",
-                    customer_id_type
+                    CUSTOMER_ID_TYPE
                 );
 
 
@@ -508,18 +435,15 @@ export default {
                     "Criando chamado:"
                 );
 
-
                 console.log(
                     "Código:",
                     codigo
                 );
 
-
                 console.log(
                     "Local:",
                     local
                 );
-
 
                 console.log(
                     "Assunto:",
@@ -560,7 +484,7 @@ export default {
 
 
                 // =================================================
-                // LÊ RESPOSTA
+                // LÊ RESPOSTA DA CRIAÇÃO
                 // =================================================
 
                 const textoCriacao =
@@ -619,8 +543,7 @@ export default {
                     return respostaJSON(
 
                         {
-
-                            sucesso:false,
+                            sucesso: false,
 
                             etapa:
                                 "criacao",
@@ -633,7 +556,6 @@ export default {
 
                             resposta_tomticket:
                                 dadosCriacao
-
                         },
 
                         500
@@ -658,10 +580,6 @@ export default {
                     dadosCriacao.data?.id;
 
 
-                // =================================================
-                // NÃO RECEBEU ID
-                // =================================================
-
                 if(
                     !ticket_id
                 ){
@@ -669,8 +587,7 @@ export default {
                     return respostaJSON(
 
                         {
-
-                            sucesso:false,
+                            sucesso: false,
 
                             etapa:
                                 "criacao",
@@ -680,7 +597,6 @@ export default {
 
                             tomticket:
                                 dadosCriacao
-
                         },
 
                         500
@@ -697,18 +613,180 @@ export default {
 
 
                 // =================================================
-                // 2. TRANSFERÊNCIA
+                // 2. GERA LINK DE CONCLUSÃO
+                // =================================================
+
+                const linkConclusao =
+                    CONCLUIR_URL +
+                    "?id=" +
+                    encodeURIComponent(
+                        String(ticket_id)
+                    );
+
+
+                console.log(
+                    "Link de conclusão:",
+                    linkConclusao
+                );
+
+
+                // =================================================
+                // 3. ENVIA LINK PARA O MESMO CHAMADO
                 // =================================================
                 //
-                // IMPORTANTE:
+                // Esta mensagem aparece ABAIXO da solicitação.
                 //
-                // Envia department_id.
-                //
-                // NÃO envia operator_id.
-                //
-                // Portanto o chamado permanece no departamento
-                // sem escolher automaticamente um atendente.
-                //
+                // =================================================
+
+                const dadosLink =
+                    new URLSearchParams();
+
+
+                dadosLink.append(
+                    "ticket_id",
+                    String(
+                        ticket_id
+                    )
+                );
+
+
+                dadosLink.append(
+                    "message",
+
+                    "🔗 CONCLUIR SOLICITAÇÃO:\n\n" +
+                    linkConclusao
+                );
+
+
+                console.log(
+                    "Enviando link de conclusão ao chamado..."
+                );
+
+
+                const respostaLink =
+                    await fetch(
+
+                        "https://api.tomticket.com/v2.0/ticket/reply/customer",
+
+                        {
+
+                            method:
+                                "POST",
+
+                            headers: {
+
+                                "Content-Type":
+                                    "application/x-www-form-urlencoded",
+
+                                "Authorization":
+                                    `Bearer ${env.TOMTICKET_TOKEN}`
+
+                            },
+
+                            body:
+                                dadosLink.toString()
+
+                        }
+
+                    );
+
+
+                // =================================================
+                // LÊ RESPOSTA DO LINK
+                // =================================================
+
+                const textoLink =
+                    await respostaLink.text();
+
+
+                let dadosLinkResultado;
+
+
+                try {
+
+                    dadosLinkResultado =
+                        JSON.parse(
+                            textoLink
+                        );
+
+                }
+                catch {
+
+                    dadosLinkResultado = {
+
+                        resposta:
+                            textoLink
+
+                    };
+
+                }
+
+
+                console.log(
+                    "Status link:",
+                    respostaLink.status
+                );
+
+
+                console.log(
+                    "Resposta link:",
+                    JSON.stringify(
+                        dadosLinkResultado,
+                        null,
+                        2
+                    )
+                );
+
+
+                // =================================================
+                // VERIFICA LINK
+                // =================================================
+
+                if(
+                    !respostaLink.ok ||
+                    dadosLinkResultado.error === true ||
+                    dadosLinkResultado.success === false
+                ){
+
+                    return respostaJSON(
+
+                        {
+                            sucesso: false,
+
+                            etapa:
+                                "link_conclusao",
+
+                            mensagem:
+                                "Chamado criado, mas não foi possível inserir o link de conclusão.",
+
+                            chamado_criado:
+                                true,
+
+                            ticket_id:
+                                ticket_id,
+
+                            local_code:
+                                codigo,
+
+                            local:
+                                local,
+
+                            link_conclusao:
+                                linkConclusao,
+
+                            resposta_tomticket:
+                                dadosLinkResultado
+                        },
+
+                        500
+
+                    );
+
+                }
+
+
+                // =================================================
+                // 4. TRANSFERÊNCIA
                 // =================================================
 
                 const transferencia =
@@ -726,6 +804,11 @@ export default {
                 transferencia.append(
                     "department_id",
                     DEPARTMENT_ID
+                );
+
+
+                console.log(
+                    "Transferindo chamado..."
                 );
 
 
@@ -817,10 +900,6 @@ export default {
                     dadosTransferencia.success !== false;
 
 
-                // =================================================
-                // TRANSFERÊNCIA FALHOU
-                // =================================================
-
                 if(
                     !transferenciaOK
                 ){
@@ -828,14 +907,13 @@ export default {
                     return respostaJSON(
 
                         {
-
-                            sucesso:false,
+                            sucesso: false,
 
                             etapa:
                                 "transferencia",
 
                             mensagem:
-                                "O chamado foi criado, mas a transferência para o departamento falhou.",
+                                "O chamado foi criado e recebeu o link, mas a transferência para o departamento falhou.",
 
                             chamado_criado:
                                 true,
@@ -849,8 +927,14 @@ export default {
                             local:
                                 local,
 
+                            link_conclusao:
+                                linkConclusao,
+
                             criacao:
                                 dadosCriacao,
+
+                            link:
+                                dadosLinkResultado,
 
                             transferencia: {
 
@@ -859,9 +943,7 @@ export default {
 
                                 resposta:
                                     dadosTransferencia
-
                             }
-
                         },
 
                         500
@@ -881,7 +963,7 @@ export default {
                         true,
 
                     mensagem:
-                        "Chamado criado e transferido para o departamento sem atendente.",
+                        "Chamado criado, link de conclusão inserido e chamado transferido para o departamento sem atendente.",
 
                     ticket_id:
                         ticket_id,
@@ -895,6 +977,9 @@ export default {
                     subject:
                         assuntoOficial,
 
+                    link_conclusao:
+                        linkConclusao,
+
                     department_id:
                         DEPARTMENT_ID,
 
@@ -904,6 +989,9 @@ export default {
                     criacao:
                         dadosCriacao,
 
+                    link:
+                        dadosLinkResultado,
+
                     transferencia: {
 
                         http_status:
@@ -911,7 +999,6 @@ export default {
 
                         resposta:
                             dadosTransferencia
-
                     }
 
                 });
@@ -929,8 +1016,7 @@ export default {
                 return respostaJSON(
 
                     {
-
-                        sucesso:false,
+                        sucesso: false,
 
                         etapa:
                             "worker",
@@ -940,7 +1026,6 @@ export default {
 
                         erro:
                             error.message
-
                     },
 
                     500
@@ -951,7 +1036,8 @@ export default {
 
         }
 
-                // ========================================================
+
+        // ========================================================
         // CONCLUSÃO DA SOLICITAÇÃO
         // ========================================================
 
@@ -961,6 +1047,7 @@ export default {
         ){
 
             try {
+
 
                 // =================================================
                 // RECEBE JSON
@@ -985,8 +1072,13 @@ export default {
                 console.log(
                     "Conclusão recebida:",
                     JSON.stringify({
-                        ticket_id,
-                        nome
+
+                        ticket_id:
+                            ticket_id,
+
+                        nome:
+                            nome
+
                     })
                 );
 
@@ -1002,7 +1094,7 @@ export default {
                     return respostaJSON(
 
                         {
-                            sucesso:false,
+                            sucesso: false,
 
                             mensagem:
                                 "ID do chamado não informado."
@@ -1022,7 +1114,7 @@ export default {
                     return respostaJSON(
 
                         {
-                            sucesso:false,
+                            sucesso: false,
 
                             mensagem:
                                 "Nome da colaboradora não informado."
@@ -1051,7 +1143,7 @@ export default {
                     return respostaJSON(
 
                         {
-                            sucesso:false,
+                            sucesso: false,
 
                             mensagem:
                                 "Token do TomTicket não configurado na API."
@@ -1069,16 +1161,13 @@ export default {
                 // =================================================
 
                 const mensagem =
-
                     "Solicitação concluída.\n\n" +
-
                     "Realizado por: " +
-
                     nome;
 
 
                 // =================================================
-                // DADOS TOMTICKET
+                // DADOS DA RESPOSTA
                 // =================================================
 
                 const dados =
@@ -1147,7 +1236,7 @@ export default {
 
 
                 // =================================================
-                // LÊ RESPOSTA DO TOMTICKET
+                // LÊ RESPOSTA
                 // =================================================
 
                 const texto =
@@ -1206,8 +1295,7 @@ export default {
                     return respostaJSON(
 
                         {
-
-                            sucesso:false,
+                            sucesso: false,
 
                             etapa:
                                 "resposta_tomticket",
@@ -1226,7 +1314,6 @@ export default {
 
                             texto_tomticket:
                                 texto
-
                         },
 
                         500
@@ -1275,8 +1362,7 @@ export default {
                 return respostaJSON(
 
                     {
-
-                        sucesso:false,
+                        sucesso: false,
 
                         etapa:
                             "concluir",
@@ -1286,7 +1372,6 @@ export default {
 
                         erro:
                             error.message
-
                     },
 
                     500
@@ -1297,6 +1382,7 @@ export default {
 
         }
 
+
         // ========================================================
         // ROTA NÃO ENCONTRADA
         // ========================================================
@@ -1304,12 +1390,10 @@ export default {
         return respostaJSON(
 
             {
-
-                sucesso:false,
+                sucesso: false,
 
                 mensagem:
                     "Rota não encontrada."
-
             },
 
             404
