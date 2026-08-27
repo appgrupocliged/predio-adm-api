@@ -51,7 +51,7 @@ const CATEGORY_ID =
 // ============================================================
 
 const CONCLUIR_URL =
-    "https://appgrupocliged.github.io/predio-adm-api/concluir.html";
+    "https://appgrupocliged.github.io/predio-adm/concluir.html";
 
 
 // ============================================================
