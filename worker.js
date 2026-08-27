@@ -163,12 +163,6 @@ export default {
         //
         // GET /status?id=ID_DO_CHAMADO
         //
-        // O TomTicket retorna:
-        //
-        // data.situation       = situação atual
-        // data.current_status  = status atual
-        // data.status          = histórico de status
-        //
         // ====================================================
 
         if(
@@ -179,7 +173,7 @@ export default {
             try {
 
                 // =================================================
-                // ID
+                // PEGA ID
                 // =================================================
 
                 const ticket_id =
@@ -191,15 +185,7 @@ export default {
 
 
                 console.log(
-                    "=========================================="
-                );
-
-                console.log(
-                    "CONSULTA DE STATUS"
-                );
-
-                console.log(
-                    "Ticket:",
+                    "Consulta de status recebida:",
                     ticket_id
                 );
 
@@ -266,14 +252,11 @@ export default {
                     "?ticket_id=" +
                     encodeURIComponent(
                         ticket_id
-                    ) +
-                    "&show_stopwatch=0" +
-                    "&show_staggered_tickets=0" +
-                    "&show_tags=0";
+                    );
 
 
                 console.log(
-                    "URL TomTicket:",
+                    "Consultando TomTicket:",
                     urlTomTicket
                 );
 
@@ -335,13 +318,13 @@ export default {
 
 
                 console.log(
-                    "HTTP TomTicket:",
+                    "Status consulta TomTicket:",
                     respostaStatus.status
                 );
 
 
                 console.log(
-                    "Resposta TomTicket:",
+                    "Resposta consulta completa:",
                     JSON.stringify(
                         dadosStatus,
                         null,
@@ -351,7 +334,7 @@ export default {
 
 
                 // =================================================
-                // VERIFICA ERRO
+                // VERIFICA RESPOSTA
                 // =================================================
 
                 if(
@@ -393,7 +376,7 @@ export default {
 
 
                 // =================================================
-                // DADOS DO CHAMADO
+                // PEGA DADOS DO CHAMADO
                 // =================================================
 
                 const dados =
@@ -401,204 +384,276 @@ export default {
                     dadosStatus;
 
 
-                // =================================================
-                // SITUAÇÃO ATUAL
-                // =================================================
-                //
-                // Exemplo:
-                //
-                // situation: {
-                //     id: 2,
-                //     description:
-                //       "Respondido, aguardando resposta do cliente"
-                // }
-                //
-                // =================================================
-
-                const situation =
-                    dados.situation ||
-                    null;
-
-
-                const situationId =
-                    situation &&
-                    typeof situation === "object"
-                        ? (
-                            situation.id ??
-                            null
-                        )
-                        : null;
-
-
-                const situationDescription =
-                    situation &&
-                    typeof situation === "object"
-                        ? (
-                            situation.description ||
-                            null
-                        )
-                        : (
-                            typeof situation === "string"
-                                ? situation
-                                : null
-                        );
-
-
-                const situationApplyDate =
-                    situation &&
-                    typeof situation === "object"
-                        ? (
-                            situation.apply_date ||
-                            null
-                        )
-                        : null;
+                console.log(
+                    "DADOS DO CHAMADO:",
+                    JSON.stringify(
+                        dados,
+                        null,
+                        2
+                    )
+                );
 
 
                 // =================================================
                 // STATUS ATUAL
                 // =================================================
                 //
-                // ATENÇÃO:
+                // PRIORIDADE:
                 //
-                // O TomTicket possui:
+                // 1. current_status
+                // 2. status
+                // 3. situation
                 //
-                // data.current_status = status atual
-                //
-                // data.status = histórico
+                // O TomTicket documenta current_status
+                // como o status atual do chamado.
                 //
                 // =================================================
 
-                const currentStatus =
+                let statusObjeto =
                     dados.current_status ||
                     null;
 
 
-                const statusId =
-                    currentStatus &&
-                    typeof currentStatus === "object"
-                        ? (
-                            currentStatus.id ??
-                            null
-                        )
-                        : null;
-
-
-                const statusDescription =
-                    currentStatus &&
-                    typeof currentStatus === "object"
-                        ? (
-                            currentStatus.description ||
-                            null
-                        )
-                        : (
-                            typeof currentStatus === "string"
-                                ? currentStatus
-                                : null
-                        );
-
-
-                const statusApplyDate =
-                    currentStatus &&
-                    typeof currentStatus === "object"
-                        ? (
-                            currentStatus.apply_date ||
-                            null
-                        )
-                        : null;
-
-
                 // =================================================
-                // FALLBACK
+                // FALLBACK: STATUS
                 // =================================================
-                //
-                // Caso alguma conta do TomTicket retorne
-                // estrutura diferente, tentamos também:
-                //
-                // dados.status
-                //
-                // mas somente se NÃO existir current_status.
-                //
-                // =================================================
-
-                let statusFinal =
-                    statusDescription;
-
-
-                let statusIdFinal =
-                    statusId;
-
-
-                let statusDateFinal =
-                    statusApplyDate;
-
 
                 if(
-                    !statusFinal &&
-                    dados.status
+                    !statusObjeto &&
+                    dados.status &&
+                    !Array.isArray(
+                        dados.status
+                    )
                 ){
 
+                    statusObjeto =
+                        dados.status;
+
+                }
+
+
+                // =================================================
+                // FALLBACK: SITUAÇÃO
+                // =================================================
+
+                if(
+                    !statusObjeto &&
+                    dados.situation
+                ){
+
+                    statusObjeto =
+                        dados.situation;
+
+                }
+
+
+                // =================================================
+                // VARIÁVEIS
+                // =================================================
+
+                let status =
+                    null;
+
+                let statusId =
+                    null;
+
+                let statusApplyDate =
+                    null;
+
+
+                // =================================================
+                // LÊ OBJETO DE STATUS
+                // =================================================
+
+                if(
+                    typeof statusObjeto === "string"
+                ){
+
+                    status =
+                        statusObjeto;
+
+                }
+                else if(
+                    statusObjeto &&
+                    typeof statusObjeto === "object"
+                ){
+
+                    status =
+                        statusObjeto.description ||
+                        statusObjeto.name ||
+                        statusObjeto.status ||
+                        null;
+
+
+                    statusId =
+                        statusObjeto.id ||
+                        null;
+
+
+                    statusApplyDate =
+                        statusObjeto.apply_date ||
+                        null;
+
+                }
+
+
+                // =================================================
+                // FALLBACK:
+                // HISTÓRICO DE STATUS
+                // =================================================
+
+                if(
+                    !status &&
+                    Array.isArray(
+                        dados.status
+                    ) &&
+                    dados.status.length > 0
+                ){
+
+                    const historico =
+                        dados.status;
+
+
+                    const ultimo =
+                        historico[
+                            historico.length - 1
+                        ];
+
+
                     if(
-                        Array.isArray(
-                            dados.status
-                        )
+                        ultimo
                     ){
 
-                        const ultimoStatus =
-                            dados.status[
-                                dados.status.length - 1
-                            ];
-
-
-                        if(
-                            ultimoStatus
-                        ){
-
-                            statusFinal =
-                                ultimoStatus.description ||
-                                null;
-
-
-                            statusIdFinal =
-                                ultimoStatus.id ??
-                                null;
-
-
-                            statusDateFinal =
-                                ultimoStatus.apply_date ||
-                                null;
-
-                        }
-
-                    }
-                    else if(
-                        typeof dados.status === "object"
-                    ){
-
-                        statusFinal =
-                            dados.status.description ||
+                        status =
+                            ultimo.description ||
+                            ultimo.name ||
+                            ultimo.status ||
                             null;
 
 
-                        statusIdFinal =
-                            dados.status.id ??
+                        statusId =
+                            ultimo.id ||
                             null;
 
 
-                        statusDateFinal =
-                            dados.status.apply_date ||
+                        statusApplyDate =
+                            ultimo.apply_date ||
                             null;
-
-                    }
-                    else if(
-                        typeof dados.status === "string"
-                    ){
-
-                        statusFinal =
-                            dados.status;
 
                     }
 
                 }
+
+
+                // =================================================
+                // FALLBACK EXTRA:
+                // SITUAÇÃO
+                // =================================================
+
+                const situacao =
+                    dados.situation ||
+                    null;
+
+
+                let situationId =
+                    null;
+
+                let situationDescription =
+                    null;
+
+                let situationApplyDate =
+                    null;
+
+
+                if(
+                    situacao &&
+                    typeof situacao === "object"
+                ){
+
+                    situationId =
+                        situacao.id ||
+                        null;
+
+
+                    situationDescription =
+                        situacao.description ||
+                        null;
+
+
+                    situationApplyDate =
+                        situacao.apply_date ||
+                        null;
+
+                }
+
+
+                // =================================================
+                // SE STATUS AINDA NÃO EXISTE,
+                // USA A SITUAÇÃO COMO ÚLTIMO FALLBACK
+                // =================================================
+
+                if(
+                    !status &&
+                    situationDescription
+                ){
+
+                    status =
+                        situationDescription;
+
+                }
+
+
+                if(
+                    !statusId &&
+                    situationId
+                ){
+
+                    statusId =
+                        situationId;
+
+                }
+
+
+                if(
+                    !statusApplyDate &&
+                    situationApplyDate
+                ){
+
+                    statusApplyDate =
+                        situationApplyDate;
+
+                }
+
+
+                // =================================================
+                // LOG DO RESULTADO FINAL
+                // =================================================
+
+                console.log(
+                    "STATUS FINAL EXTRAÍDO:",
+                    JSON.stringify({
+
+                        status:
+                            status,
+
+                        status_id:
+                            statusId,
+
+                        status_apply_date:
+                            statusApplyDate,
+
+                        current_status:
+                            dados.current_status ||
+                            null,
+
+                        situation:
+                            dados.situation ||
+                            null
+
+                    },
+                    null,
+                    2)
+                );
 
 
                 // =================================================
@@ -611,45 +666,7 @@ export default {
 
 
                 // =================================================
-                // LOG PRINCIPAL
-                // =================================================
-
-                console.log(
-                    "------------------------------------------"
-                );
-
-                console.log(
-                    "STATUS ATUAL:",
-                    statusFinal
-                );
-
-                console.log(
-                    "STATUS ID:",
-                    statusIdFinal
-                );
-
-                console.log(
-                    "STATUS DATA:",
-                    statusDateFinal
-                );
-
-                console.log(
-                    "SITUAÇÃO:",
-                    situationDescription
-                );
-
-                console.log(
-                    "SITUAÇÃO ID:",
-                    situationId
-                );
-
-                console.log(
-                    "------------------------------------------"
-                );
-
-
-                // =================================================
-                // RETORNO PARA O INDEX
+                // RETORNO PARA INDEX.HTML
                 // =================================================
 
                 return respostaJSON({
@@ -664,25 +681,29 @@ export default {
                         protocol,
 
                     status:
-                        statusFinal,
+                        status,
 
                     status_id:
-                        statusIdFinal,
+                        statusId,
 
                     status_apply_date:
-                        statusDateFinal,
-
-                    situation:
-                        situationDescription,
+                        statusApplyDate,
 
                     situation_id:
                         situationId,
+
+                    situation:
+                        situationDescription,
 
                     situation_apply_date:
                         situationApplyDate,
 
                     subject:
                         dados.subject ||
+                        null,
+
+                    current_status:
+                        dados.current_status ||
                         null,
 
                     data:
@@ -735,6 +756,7 @@ export default {
         ){
 
             try {
+
 
                 // =================================================
                 // RECEBE JSON
@@ -834,6 +856,7 @@ export default {
                     codigo
                 );
 
+
                 console.log(
                     "Local oficial:",
                     local
@@ -852,6 +875,7 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
@@ -895,10 +919,12 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
                                 "Token do TomTicket não configurado na API."
+
                         },
 
                         500
@@ -1003,7 +1029,25 @@ export default {
 
 
                 console.log(
-                    "Criando chamado..."
+                    "Criando chamado:"
+                );
+
+
+                console.log(
+                    "Código:",
+                    codigo
+                );
+
+
+                console.log(
+                    "Local:",
+                    local
+                );
+
+
+                console.log(
+                    "Assunto:",
+                    assuntoOficial
                 );
 
 
@@ -1027,10 +1071,7 @@ export default {
                                     "application/x-www-form-urlencoded",
 
                                 "Authorization":
-                                    `Bearer ${env.TOMTICKET_TOKEN}`,
-
-                                "Accept":
-                                    "application/json"
+                                    `Bearer ${env.TOMTICKET_TOKEN}`
 
                             },
 
@@ -1043,7 +1084,7 @@ export default {
 
 
                 // =================================================
-                // LÊ CRIAÇÃO
+                // LÊ RESPOSTA
                 // =================================================
 
                 const textoCriacao =
@@ -1176,7 +1217,7 @@ export default {
 
 
                 // =================================================
-                // 2. LINK DE CONCLUSÃO
+                // 2. GERA LINK DE CONCLUSÃO
                 // =================================================
 
                 const linkConclusao =
@@ -1194,7 +1235,7 @@ export default {
 
 
                 // =================================================
-                // 3. ENVIA LINK
+                // 3. ENVIA LINK PARA O MESMO CHAMADO
                 // =================================================
 
                 const dadosLink =
@@ -1218,6 +1259,11 @@ export default {
                 );
 
 
+                console.log(
+                    "Enviando link de conclusão ao chamado..."
+                );
+
+
                 const respostaLink =
                     await fetch(
 
@@ -1234,10 +1280,7 @@ export default {
                                     "application/x-www-form-urlencoded",
 
                                 "Authorization":
-                                    `Bearer ${env.TOMTICKET_TOKEN}`,
-
-                                "Accept":
-                                    "application/json"
+                                    `Bearer ${env.TOMTICKET_TOKEN}`
 
                             },
 
@@ -1250,7 +1293,7 @@ export default {
 
 
                 // =================================================
-                // LÊ LINK
+                // LÊ RESPOSTA DO LINK
                 // =================================================
 
                 const textoLink =
@@ -1367,6 +1410,11 @@ export default {
                 );
 
 
+                console.log(
+                    "Transferindo chamado..."
+                );
+
+
                 const respostaTransferencia =
                     await fetch(
 
@@ -1383,10 +1431,7 @@ export default {
                                     "application/x-www-form-urlencoded",
 
                                 "Authorization":
-                                    `Bearer ${env.TOMTICKET_TOKEN}`,
-
-                                "Accept":
-                                    "application/json"
+                                    `Bearer ${env.TOMTICKET_TOKEN}`
 
                             },
 
@@ -1515,7 +1560,7 @@ export default {
 
 
                 // =================================================
-                // SUCESSO
+                // SUCESSO FINAL
                 // =================================================
 
                 return respostaJSON({
@@ -1612,6 +1657,7 @@ export default {
 
             try {
 
+
                 // =================================================
                 // RECEBE JSON
                 // =================================================
@@ -1702,6 +1748,11 @@ export default {
                     !env.TOMTICKET_TOKEN
                 ){
 
+                    console.error(
+                        "TOMTICKET_TOKEN não configurado."
+                    );
+
+
                     return respostaJSON(
 
                         {
@@ -1721,7 +1772,7 @@ export default {
 
 
                 // =================================================
-                // MENSAGEM
+                // MENSAGEM DE CONCLUSÃO
                 // =================================================
 
                 const mensagem =
@@ -1731,7 +1782,7 @@ export default {
 
 
                 // =================================================
-                // DADOS
+                // DADOS DA RESPOSTA
                 // =================================================
 
                 const dados =
@@ -1750,8 +1801,25 @@ export default {
                 );
 
 
+                console.log(
+                    "Enviando conclusão ao TomTicket..."
+                );
+
+
+                console.log(
+                    "Ticket:",
+                    ticket_id
+                );
+
+
+                console.log(
+                    "Mensagem:",
+                    mensagem
+                );
+
+
                 // =================================================
-                // RESPONDE CHAMADO
+                // RESPONDE O MESMO CHAMADO
                 // =================================================
 
                 const resposta =
@@ -1770,10 +1838,7 @@ export default {
                                     "application/x-www-form-urlencoded",
 
                                 "Authorization":
-                                    `Bearer ${env.TOMTICKET_TOKEN}`,
-
-                                "Accept":
-                                    "application/json"
+                                    `Bearer ${env.TOMTICKET_TOKEN}`
 
                             },
 
@@ -1833,7 +1898,7 @@ export default {
 
 
                 // =================================================
-                // VERIFICA
+                // VERIFICAÇÃO
                 // =================================================
 
                 if(
@@ -1894,7 +1959,8 @@ export default {
                         nome,
 
                     resposta_id:
-                        resultado.id || null,
+                        resultado.id ||
+                        null,
 
                     tomticket:
                         resultado
