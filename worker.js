@@ -1036,7 +1036,263 @@ export default {
 
         }
 
+// ========================================================
+// CONSULTA DE STATUS DO CHAMADO
+// ========================================================
 
+if(
+    request.method === "GET" &&
+    url.pathname === "/status"
+){
+
+    try {
+
+        const ticket_id =
+            String(
+                url.searchParams.get("ticket_id") || ""
+            ).trim();
+
+
+        // =================================================
+        // VALIDA ID
+        // =================================================
+
+        if(!ticket_id){
+
+            return respostaJSON(
+
+                {
+                    sucesso: false,
+
+                    mensagem:
+                        "ID do chamado não informado."
+                },
+
+                400
+
+            );
+
+        }
+
+
+        // =================================================
+        // TOKEN
+        // =================================================
+
+        if(
+            !env.TOMTICKET_TOKEN
+        ){
+
+            return respostaJSON(
+
+                {
+                    sucesso: false,
+
+                    mensagem:
+                        "Token do TomTicket não configurado na API."
+                },
+
+                500
+
+            );
+
+        }
+
+
+        // =================================================
+        // CONSULTA TOMTICKET
+        // =================================================
+
+        const urlTomTicket =
+            "https://api.tomticket.com/v2.0/ticket/detail" +
+            "?ticket_id=" +
+            encodeURIComponent(ticket_id);
+
+
+        const resposta =
+            await fetch(
+
+                urlTomTicket,
+
+                {
+
+                    method:
+                        "GET",
+
+                    headers: {
+
+                        "Authorization":
+                            `Bearer ${env.TOMTICKET_TOKEN}`,
+
+                        "Accept":
+                            "application/json"
+
+                    }
+
+                }
+
+            );
+
+
+        // =================================================
+        // LÊ RESPOSTA
+        // =================================================
+
+        const texto =
+            await resposta.text();
+
+
+        let resultado;
+
+
+        try {
+
+            resultado =
+                JSON.parse(
+                    texto
+                );
+
+        }
+        catch {
+
+            resultado = {
+
+                resposta:
+                    texto
+
+            };
+
+        }
+
+
+        console.log(
+            "Consulta de status:",
+            JSON.stringify(
+                resultado,
+                null,
+                2
+            )
+        );
+
+
+        // =================================================
+        // VERIFICA
+        // =================================================
+
+        if(
+            !resposta.ok ||
+            resultado.error === true ||
+            resultado.success === false
+        ){
+
+            return respostaJSON(
+
+                {
+                    sucesso: false,
+
+                    mensagem:
+                        "Não foi possível consultar o chamado.",
+
+                    ticket_id:
+                        ticket_id,
+
+                    resposta_tomticket:
+                        resultado
+
+                },
+
+                resposta.status || 500
+
+            );
+
+        }
+
+
+        // =================================================
+        // DADOS DO CHAMADO
+        // =================================================
+
+        const chamado =
+            resultado.data || {};
+
+
+        const statusAtual =
+            chamado.current_status?.description ||
+            chamado.situation?.description ||
+            "Aguardando atendimento";
+
+
+        const statusId =
+            chamado.current_status?.id ||
+            chamado.situation?.id ||
+            null;
+
+
+        // =================================================
+        // VERIFICA SE FOI ENCERRADO
+        // =================================================
+
+        const concluido =
+            !!chamado.end_date;
+
+
+        // =================================================
+        // RESPOSTA PARA O HTML
+        // =================================================
+
+        return respostaJSON({
+
+            sucesso:
+                true,
+
+            ticket_id:
+                ticket_id,
+
+            status:
+                statusAtual,
+
+            status_id:
+                statusId,
+
+            concluido:
+                concluido,
+
+            end_date:
+                chamado.end_date || null
+
+        });
+
+
+    }
+    catch(error){
+
+        console.error(
+            "ERRO AO CONSULTAR STATUS:",
+            error
+        );
+
+
+        return respostaJSON(
+
+            {
+                sucesso: false,
+
+                mensagem:
+                    "Erro interno ao consultar o status.",
+
+                erro:
+                    error.message
+
+            },
+
+            500
+
+        );
+
+    }
+
+}
+        
         // ========================================================
         // CONCLUSÃO DA SOLICITAÇÃO
         // ========================================================
