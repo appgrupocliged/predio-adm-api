@@ -362,10 +362,6 @@ export default {
                 );
 
 
-                // =================================================
-                // STATUS ATUAL
-                // =================================================
-
                 let statusObjeto =
                     dados.current_status ||
                     null;
@@ -438,10 +434,6 @@ export default {
                 }
 
 
-                // =================================================
-                // FALLBACK HISTÓRICO
-                // =================================================
-
                 if(
                     !status &&
                     Array.isArray(
@@ -484,10 +476,6 @@ export default {
 
                 }
 
-
-                // =================================================
-                // FALLBACK SITUAÇÃO
-                // =================================================
 
                 const situacao =
                     dados.situation ||
@@ -831,18 +819,10 @@ export default {
                 }
 
 
-                // =================================================
-                // ASSUNTO OFICIAL
-                // =================================================
-
                 const assuntoOficial =
                     "Solicitação - " +
                     local;
 
-
-                // =================================================
-                // LIMPA A MENSAGEM RECEBIDA
-                // =================================================
 
                 let mensagemRecebida =
                     String(
@@ -857,57 +837,42 @@ export default {
                     );
 
 
-                /*
-                Remove qualquer "Local: ..."
-                que eventualmente venha do HTML.
-
-                Assim o Worker é o responsável por
-                montar a identificação oficial.
-                */
-
                 mensagemRecebida =
                     mensagemRecebida.replace(
-                        /^\s*Local:\s*.*(?:\r?\n)+/i,
+                        /^Local:.*\n*/i,
                         ""
                     );
 
 
-                mensagemRecebida =
-                    mensagemRecebida.trim();
+                /*
+                =================================================
+                MENSAGEM OFICIAL
+                =================================================
 
+                ALTERAÇÃO ÚNICA:
 
-                // =================================================
-                // MENSAGEM OFICIAL
-                // =================================================
-                //
-                // AGORA FICA:
-                //
-                // Código do local: B.14
-                //
-                // Local: T.I
-                //
-                // Solicitação:
-                // - Papel toalha
-                //
-                // SEM DUPLICAÇÃO.
-                //
-                // =================================================
+                Agora o código B.01-B.19 aparece uma única vez.
+
+                Exemplo:
+
+                Código do local: B.14
+                Local: T.I
+
+                Solicitação:
+                - Papel higiênico
+
+                =================================================
+                */
 
                 const mensagemOficial =
                     "Código do local: " +
                     codigo +
-                    "\n\n" +
-
+                    "\n" +
                     "Local: " +
                     local +
                     "\n\n" +
-
                     mensagemRecebida;
 
-
-                // =================================================
-                // DADOS TOMTICKET
-                // =================================================
 
                 const dados =
                     new URLSearchParams();
@@ -981,16 +946,6 @@ export default {
                     assuntoOficial
                 );
 
-
-                console.log(
-                    "Mensagem oficial:",
-                    mensagemOficial
-                );
-
-
-                // =================================================
-                // 1. CRIA CHAMADO
-                // =================================================
 
                 const respostaCriacao =
                     await fetch(
@@ -1141,10 +1096,6 @@ export default {
                 );
 
 
-                // =================================================
-                // 2. GERA LINK DE CONCLUSÃO
-                // =================================================
-
                 const linkConclusao =
                     CONCLUIR_URL +
                     "?id=" +
@@ -1158,10 +1109,6 @@ export default {
                     linkConclusao
                 );
 
-
-                // =================================================
-                // 3. ENVIA LINK PARA O MESMO CHAMADO
-                // =================================================
 
                 const dadosLink =
                     new URLSearchParams();
@@ -1304,10 +1251,6 @@ export default {
 
                 }
 
-
-                // =================================================
-                // 4. TRANSFERÊNCIA
-                // =================================================
 
                 const transferencia =
                     new URLSearchParams();
@@ -1467,10 +1410,6 @@ export default {
 
                 }
 
-
-                // =================================================
-                // SUCESSO FINAL
-                // =================================================
 
                 return respostaJSON({
 
@@ -1874,10 +1813,6 @@ export default {
 
         }
 
-
-        // ========================================================
-        // ROTA NÃO ENCONTRADA
-        // ========================================================
 
         return respostaJSON(
 
