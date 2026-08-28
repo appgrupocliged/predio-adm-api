@@ -160,10 +160,6 @@ export default {
         // ====================================================
         // CONSULTA STATUS DO CHAMADO
         // ====================================================
-        //
-        // GET /status?id=ID_DO_CHAMADO
-        //
-        // ====================================================
 
         if(
             request.method === "GET" &&
@@ -171,10 +167,6 @@ export default {
         ){
 
             try {
-
-                // =================================================
-                // PEGA ID
-                // =================================================
 
                 const ticket_id =
                     String(
@@ -189,10 +181,6 @@ export default {
                     ticket_id
                 );
 
-
-                // =================================================
-                // VALIDA ID
-                // =================================================
 
                 if(
                     !ticket_id
@@ -213,10 +201,6 @@ export default {
 
                 }
 
-
-                // =================================================
-                // TOKEN
-                // =================================================
 
                 if(
                     !env.TOMTICKET_TOKEN
@@ -242,10 +226,6 @@ export default {
 
                 }
 
-
-                // =================================================
-                // CONSULTA TOMTICKET
-                // =================================================
 
                 const urlTomTicket =
                     "https://api.tomticket.com/v2.0/ticket/detail" +
@@ -286,10 +266,6 @@ export default {
                     );
 
 
-                // =================================================
-                // LÊ RESPOSTA
-                // =================================================
-
                 const textoStatus =
                     await respostaStatus.text();
 
@@ -324,7 +300,7 @@ export default {
 
 
                 console.log(
-                    "Resposta consulta completa:",
+                    "Resposta consulta:",
                     JSON.stringify(
                         dadosStatus,
                         null,
@@ -332,10 +308,6 @@ export default {
                     )
                 );
 
-
-                // =================================================
-                // VERIFICA RESPOSTA
-                // =================================================
 
                 if(
                     !respostaStatus.ok ||
@@ -375,299 +347,41 @@ export default {
                 }
 
 
-                // =================================================
-                // PEGA DADOS DO CHAMADO
-                // =================================================
-
                 const dados =
                     dadosStatus.data ||
                     dadosStatus;
 
 
-                console.log(
-                    "DADOS DO CHAMADO:",
-                    JSON.stringify(
-                        dados,
-                        null,
-                        2
-                    )
-                );
-
-
-                // =================================================
-                // STATUS ATUAL
-                // =================================================
-                //
-                // PRIORIDADE:
-                //
-                // 1. current_status
-                // 2. status
-                // 3. situation
-                //
-                // O TomTicket documenta current_status
-                // como o status atual do chamado.
-                //
-                // =================================================
-
-                let statusObjeto =
-                    dados.current_status ||
-                    null;
-
-
-                // =================================================
-                // FALLBACK: STATUS
-                // =================================================
-
-                if(
-                    !statusObjeto &&
-                    dados.status &&
-                    !Array.isArray(
-                        dados.status
-                    )
-                ){
-
-                    statusObjeto =
-                        dados.status;
-
-                }
-
-
-                // =================================================
-                // FALLBACK: SITUAÇÃO
-                // =================================================
-
-                if(
-                    !statusObjeto &&
-                    dados.situation
-                ){
-
-                    statusObjeto =
-                        dados.situation;
-
-                }
-
-
-                // =================================================
-                // VARIÁVEIS
-                // =================================================
-
-                let status =
-                    null;
-
-                let statusId =
-                    null;
-
-                let statusApplyDate =
-                    null;
-
-
-                // =================================================
-                // LÊ OBJETO DE STATUS
-                // =================================================
-
-                if(
-                    typeof statusObjeto === "string"
-                ){
-
-                    status =
-                        statusObjeto;
-
-                }
-                else if(
-                    statusObjeto &&
-                    typeof statusObjeto === "object"
-                ){
-
-                    status =
-                        statusObjeto.description ||
-                        statusObjeto.name ||
-                        statusObjeto.status ||
-                        null;
-
-
-                    statusId =
-                        statusObjeto.id ||
-                        null;
-
-
-                    statusApplyDate =
-                        statusObjeto.apply_date ||
-                        null;
-
-                }
-
-
-                // =================================================
-                // FALLBACK:
-                // HISTÓRICO DE STATUS
-                // =================================================
-
-                if(
-                    !status &&
-                    Array.isArray(
-                        dados.status
-                    ) &&
-                    dados.status.length > 0
-                ){
-
-                    const historico =
-                        dados.status;
-
-
-                    const ultimo =
-                        historico[
-                            historico.length - 1
-                        ];
-
-
-                    if(
-                        ultimo
-                    ){
-
-                        status =
-                            ultimo.description ||
-                            ultimo.name ||
-                            ultimo.status ||
-                            null;
-
-
-                        statusId =
-                            ultimo.id ||
-                            null;
-
-
-                        statusApplyDate =
-                            ultimo.apply_date ||
-                            null;
-
-                    }
-
-                }
-
-
-                // =================================================
-                // FALLBACK EXTRA:
-                // SITUAÇÃO
-                // =================================================
-
-                const situacao =
+                const statusObjeto =
+                    dados.status ||
                     dados.situation ||
                     null;
 
 
-                let situationId =
-                    null;
-
-                let situationDescription =
-                    null;
-
-                let situationApplyDate =
-                    null;
-
-
-                if(
-                    situacao &&
-                    typeof situacao === "object"
-                ){
-
-                    situationId =
-                        situacao.id ||
-                        null;
-
-
-                    situationDescription =
-                        situacao.description ||
-                        null;
-
-
-                    situationApplyDate =
-                        situacao.apply_date ||
-                        null;
-
-                }
-
-
-                // =================================================
-                // SE STATUS AINDA NÃO EXISTE,
-                // USA A SITUAÇÃO COMO ÚLTIMO FALLBACK
-                // =================================================
-
-                if(
-                    !status &&
-                    situationDescription
-                ){
-
-                    status =
-                        situationDescription;
-
-                }
-
-
-                if(
-                    !statusId &&
-                    situationId
-                ){
-
-                    statusId =
-                        situationId;
-
-                }
-
-
-                if(
-                    !statusApplyDate &&
-                    situationApplyDate
-                ){
-
-                    statusApplyDate =
-                        situationApplyDate;
-
-                }
-
-
-                // =================================================
-                // LOG DO RESULTADO FINAL
-                // =================================================
-
-                console.log(
-                    "STATUS FINAL EXTRAÍDO:",
-                    JSON.stringify({
-
-                        status:
-                            status,
-
-                        status_id:
-                            statusId,
-
-                        status_apply_date:
-                            statusApplyDate,
-
-                        current_status:
-                            dados.current_status ||
-                            null,
-
-                        situation:
-                            dados.situation ||
+                const status =
+                    typeof statusObjeto === "string"
+                        ? statusObjeto
+                        : (
+                            statusObjeto?.description ||
+                            statusObjeto?.name ||
+                            statusObjeto?.status ||
                             null
-
-                    },
-                    null,
-                    2)
-                );
+                        );
 
 
-                // =================================================
-                // PROTOCOLO
-                // =================================================
+                const statusId =
+                    typeof statusObjeto === "object"
+                        ? (
+                            statusObjeto?.id ||
+                            null
+                        )
+                        : null;
+
 
                 const protocol =
                     dados.protocol ||
                     null;
 
-
-                // =================================================
-                // RETORNO PARA INDEX.HTML
-                // =================================================
 
                 return respostaJSON({
 
@@ -686,24 +400,8 @@ export default {
                     status_id:
                         statusId,
 
-                    status_apply_date:
-                        statusApplyDate,
-
-                    situation_id:
-                        situationId,
-
-                    situation:
-                        situationDescription,
-
-                    situation_apply_date:
-                        situationApplyDate,
-
                     subject:
                         dados.subject ||
-                        null,
-
-                    current_status:
-                        dados.current_status ||
                         null,
 
                     data:
@@ -757,11 +455,6 @@ export default {
 
             try {
 
-
-                // =================================================
-                // RECEBE JSON
-                // =================================================
-
                 const body =
                     await request.json();
 
@@ -780,10 +473,6 @@ export default {
                     JSON.stringify(body)
                 );
 
-
-                // =================================================
-                // VALIDA CÓDIGO
-                // =================================================
 
                 if(
                     !local_code
@@ -805,10 +494,6 @@ export default {
                 }
 
 
-                // =================================================
-                // NORMALIZA CÓDIGO
-                // =================================================
-
                 const codigo =
                     String(
                         local_code
@@ -816,10 +501,6 @@ export default {
                     .toUpperCase()
                     .trim();
 
-
-                // =================================================
-                // LOCAL OFICIAL
-                // =================================================
 
                 const local =
                     LOCAIS_QR[
@@ -841,7 +522,6 @@ export default {
 
                             codigo_recebido:
                                 codigo
-
                         },
 
                         400
@@ -856,16 +536,11 @@ export default {
                     codigo
                 );
 
-
                 console.log(
                     "Local oficial:",
                     local
                 );
 
-
-                // =================================================
-                // VALIDA DADOS
-                // =================================================
 
                 if(
                     !category_id ||
@@ -875,7 +550,6 @@ export default {
                     return respostaJSON(
 
                         {
-
                             sucesso: false,
 
                             mensagem:
@@ -903,10 +577,6 @@ export default {
                 }
 
 
-                // =================================================
-                // TOKEN
-                // =================================================
-
                 if(
                     !env.TOMTICKET_TOKEN
                 ){
@@ -919,12 +589,10 @@ export default {
                     return respostaJSON(
 
                         {
-
                             sucesso: false,
 
                             mensagem:
                                 "Token do TomTicket não configurado na API."
-
                         },
 
                         500
@@ -935,16 +603,18 @@ export default {
 
 
                 // =================================================
-                // ASSUNTO OFICIAL
+                // ASSUNTO OFICIAL COM CÓDIGO DO LOCAL
                 // =================================================
 
                 const assuntoOficial =
                     "Solicitação - " +
+                    codigo +
+                    " - " +
                     local;
 
 
                 // =================================================
-                // MENSAGEM OFICIAL
+                // LIMPA MENSAGEM RECEBIDA
                 // =================================================
 
                 let mensagemRecebida =
@@ -967,10 +637,24 @@ export default {
                     );
 
 
+                // =================================================
+                // MENSAGEM OFICIAL
+                // =================================================
+                //
+                // Agora o código B.XX fica registrado junto
+                // com o nome do ambiente.
+                //
+                // =================================================
+
                 const mensagemOficial =
+                    "Código do local: " +
+                    codigo +
+                    "\n\n" +
+
                     "Local: " +
                     local +
                     "\n\n" +
+
                     mensagemRecebida;
 
 
@@ -1032,18 +716,15 @@ export default {
                     "Criando chamado:"
                 );
 
-
                 console.log(
                     "Código:",
                     codigo
                 );
 
-
                 console.log(
                     "Local:",
                     local
                 );
-
 
                 console.log(
                     "Assunto:",
@@ -1052,7 +733,7 @@ export default {
 
 
                 // =================================================
-                // 1. CRIA CHAMADO
+                // 1. CRIA O CHAMADO
                 // =================================================
 
                 const respostaCriacao =
@@ -1082,10 +763,6 @@ export default {
 
                     );
 
-
-                // =================================================
-                // LÊ RESPOSTA
-                // =================================================
 
                 const textoCriacao =
                     await respostaCriacao.text();
@@ -1130,10 +807,6 @@ export default {
                 );
 
 
-                // =================================================
-                // VERIFICA CRIAÇÃO
-                // =================================================
-
                 if(
                     !respostaCriacao.ok ||
                     dadosCriacao.error === true ||
@@ -1168,7 +841,7 @@ export default {
 
 
                 // =================================================
-                // PEGA ID
+                // PEGA ID DO CHAMADO
                 // =================================================
 
                 const ticket_id =
@@ -1255,7 +928,6 @@ export default {
 
                     "🔗 CONCLUIR SOLICITAÇÃO:\n\n" +
                     linkConclusao
-
                 );
 
 
@@ -1291,10 +963,6 @@ export default {
 
                     );
 
-
-                // =================================================
-                // LÊ RESPOSTA DO LINK
-                // =================================================
 
                 const textoLink =
                     await respostaLink.text();
@@ -1338,10 +1006,6 @@ export default {
                     )
                 );
 
-
-                // =================================================
-                // VERIFICA LINK
-                // =================================================
 
                 if(
                     !respostaLink.ok ||
@@ -1443,10 +1107,6 @@ export default {
                     );
 
 
-                // =================================================
-                // LÊ TRANSFERÊNCIA
-                // =================================================
-
                 const textoTransferencia =
                     await respostaTransferencia.text();
 
@@ -1489,10 +1149,6 @@ export default {
                     )
                 );
 
-
-                // =================================================
-                // VERIFICA TRANSFERÊNCIA
-                // =================================================
 
                 const transferenciaOK =
 
@@ -1657,11 +1313,6 @@ export default {
 
             try {
 
-
-                // =================================================
-                // RECEBE JSON
-                // =================================================
-
                 const body =
                     await request.json();
 
@@ -1692,10 +1343,6 @@ export default {
                 );
 
 
-                // =================================================
-                // VALIDAÇÃO
-                // =================================================
-
                 if(
                     !ticket_id
                 ){
@@ -1703,12 +1350,10 @@ export default {
                     return respostaJSON(
 
                         {
-
                             sucesso: false,
 
                             mensagem:
                                 "ID do chamado não informado."
-
                         },
 
                         400
@@ -1725,12 +1370,10 @@ export default {
                     return respostaJSON(
 
                         {
-
                             sucesso: false,
 
                             mensagem:
                                 "Nome da colaboradora não informado."
-
                         },
 
                         400
@@ -1739,10 +1382,6 @@ export default {
 
                 }
 
-
-                // =================================================
-                // TOKEN
-                // =================================================
 
                 if(
                     !env.TOMTICKET_TOKEN
@@ -1756,12 +1395,10 @@ export default {
                     return respostaJSON(
 
                         {
-
                             sucesso: false,
 
                             mensagem:
                                 "Token do TomTicket não configurado na API."
-
                         },
 
                         500
@@ -1771,19 +1408,11 @@ export default {
                 }
 
 
-                // =================================================
-                // MENSAGEM DE CONCLUSÃO
-                // =================================================
-
                 const mensagem =
                     "Solicitação concluída.\n\n" +
                     "Realizado por: " +
                     nome;
 
-
-                // =================================================
-                // DADOS DA RESPOSTA
-                // =================================================
 
                 const dados =
                     new URLSearchParams();
@@ -1818,10 +1447,6 @@ export default {
                 );
 
 
-                // =================================================
-                // RESPONDE O MESMO CHAMADO
-                // =================================================
-
                 const resposta =
                     await fetch(
 
@@ -1849,10 +1474,6 @@ export default {
 
                     );
 
-
-                // =================================================
-                // LÊ RESPOSTA
-                // =================================================
 
                 const texto =
                     await resposta.text();
@@ -1897,10 +1518,6 @@ export default {
                 );
 
 
-                // =================================================
-                // VERIFICAÇÃO
-                // =================================================
-
                 if(
                     !resposta.ok ||
                     resultado.error === true ||
@@ -1940,10 +1557,6 @@ export default {
                 }
 
 
-                // =================================================
-                // SUCESSO
-                // =================================================
-
                 return respostaJSON({
 
                     sucesso:
@@ -1959,8 +1572,7 @@ export default {
                         nome,
 
                     resposta_id:
-                        resultado.id ||
-                        null,
+                        resultado.id || null,
 
                     tomticket:
                         resultado
@@ -2010,12 +1622,10 @@ export default {
         return respostaJSON(
 
             {
-
                 sucesso: false,
 
                 mensagem:
                     "Rota não encontrada."
-
             },
 
             404
