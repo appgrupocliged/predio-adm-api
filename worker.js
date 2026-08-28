@@ -300,7 +300,7 @@ export default {
 
 
                 console.log(
-                    "Resposta consulta:",
+                    "Resposta consulta completa:",
                     JSON.stringify(
                         dadosStatus,
                         null,
@@ -352,30 +352,238 @@ export default {
                     dadosStatus;
 
 
-                const statusObjeto =
-                    dados.status ||
+                console.log(
+                    "DADOS DO CHAMADO:",
+                    JSON.stringify(
+                        dados,
+                        null,
+                        2
+                    )
+                );
+
+
+                // =================================================
+                // STATUS ATUAL
+                // =================================================
+
+                let statusObjeto =
+                    dados.current_status ||
+                    null;
+
+
+                if(
+                    !statusObjeto &&
+                    dados.status &&
+                    !Array.isArray(
+                        dados.status
+                    )
+                ){
+
+                    statusObjeto =
+                        dados.status;
+
+                }
+
+
+                if(
+                    !statusObjeto &&
+                    dados.situation
+                ){
+
+                    statusObjeto =
+                        dados.situation;
+
+                }
+
+
+                let status =
+                    null;
+
+                let statusId =
+                    null;
+
+                let statusApplyDate =
+                    null;
+
+
+                if(
+                    typeof statusObjeto === "string"
+                ){
+
+                    status =
+                        statusObjeto;
+
+                }
+                else if(
+                    statusObjeto &&
+                    typeof statusObjeto === "object"
+                ){
+
+                    status =
+                        statusObjeto.description ||
+                        statusObjeto.name ||
+                        statusObjeto.status ||
+                        null;
+
+
+                    statusId =
+                        statusObjeto.id ||
+                        null;
+
+
+                    statusApplyDate =
+                        statusObjeto.apply_date ||
+                        null;
+
+                }
+
+
+                // =================================================
+                // FALLBACK HISTÓRICO
+                // =================================================
+
+                if(
+                    !status &&
+                    Array.isArray(
+                        dados.status
+                    ) &&
+                    dados.status.length > 0
+                ){
+
+                    const historico =
+                        dados.status;
+
+
+                    const ultimo =
+                        historico[
+                            historico.length - 1
+                        ];
+
+
+                    if(
+                        ultimo
+                    ){
+
+                        status =
+                            ultimo.description ||
+                            ultimo.name ||
+                            ultimo.status ||
+                            null;
+
+
+                        statusId =
+                            ultimo.id ||
+                            null;
+
+
+                        statusApplyDate =
+                            ultimo.apply_date ||
+                            null;
+
+                    }
+
+                }
+
+
+                // =================================================
+                // FALLBACK SITUAÇÃO
+                // =================================================
+
+                const situacao =
                     dados.situation ||
                     null;
 
 
-                const status =
-                    typeof statusObjeto === "string"
-                        ? statusObjeto
-                        : (
-                            statusObjeto?.description ||
-                            statusObjeto?.name ||
-                            statusObjeto?.status ||
-                            null
-                        );
+                let situationId =
+                    null;
+
+                let situationDescription =
+                    null;
+
+                let situationApplyDate =
+                    null;
 
 
-                const statusId =
-                    typeof statusObjeto === "object"
-                        ? (
-                            statusObjeto?.id ||
+                if(
+                    situacao &&
+                    typeof situacao === "object"
+                ){
+
+                    situationId =
+                        situacao.id ||
+                        null;
+
+
+                    situationDescription =
+                        situacao.description ||
+                        null;
+
+
+                    situationApplyDate =
+                        situacao.apply_date ||
+                        null;
+
+                }
+
+
+                if(
+                    !status &&
+                    situationDescription
+                ){
+
+                    status =
+                        situationDescription;
+
+                }
+
+
+                if(
+                    !statusId &&
+                    situationId
+                ){
+
+                    statusId =
+                        situationId;
+
+                }
+
+
+                if(
+                    !statusApplyDate &&
+                    situationApplyDate
+                ){
+
+                    statusApplyDate =
+                        situationApplyDate;
+
+                }
+
+
+                console.log(
+                    "STATUS FINAL EXTRAÍDO:",
+                    JSON.stringify({
+
+                        status:
+                            status,
+
+                        status_id:
+                            statusId,
+
+                        status_apply_date:
+                            statusApplyDate,
+
+                        current_status:
+                            dados.current_status ||
+                            null,
+
+                        situation:
+                            dados.situation ||
                             null
-                        )
-                        : null;
+
+                    },
+                    null,
+                    2)
+                );
 
 
                 const protocol =
@@ -400,8 +608,24 @@ export default {
                     status_id:
                         statusId,
 
+                    status_apply_date:
+                        statusApplyDate,
+
+                    situation_id:
+                        situationId,
+
+                    situation:
+                        situationDescription,
+
+                    situation_apply_date:
+                        situationApplyDate,
+
                     subject:
                         dados.subject ||
+                        null,
+
+                    current_status:
+                        dados.current_status ||
                         null,
 
                     data:
@@ -522,6 +746,7 @@ export default {
 
                             codigo_recebido:
                                 codigo
+
                         },
 
                         400
@@ -535,6 +760,7 @@ export default {
                     "QR recebido:",
                     codigo
                 );
+
 
                 console.log(
                     "Local oficial:",
@@ -550,6 +776,7 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
@@ -589,10 +816,12 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
                                 "Token do TomTicket não configurado na API."
+
                         },
 
                         500
@@ -603,18 +832,16 @@ export default {
 
 
                 // =================================================
-                // ASSUNTO OFICIAL COM CÓDIGO DO LOCAL
+                // ASSUNTO OFICIAL
                 // =================================================
 
                 const assuntoOficial =
                     "Solicitação - " +
-                    codigo +
-                    " - " +
                     local;
 
 
                 // =================================================
-                // LIMPA MENSAGEM RECEBIDA
+                // LIMPA A MENSAGEM RECEBIDA
                 // =================================================
 
                 let mensagemRecebida =
@@ -630,19 +857,39 @@ export default {
                     );
 
 
+                /*
+                Remove qualquer "Local: ..."
+                que eventualmente venha do HTML.
+
+                Assim o Worker é o responsável por
+                montar a identificação oficial.
+                */
+
                 mensagemRecebida =
                     mensagemRecebida.replace(
-                        /^Local:.*\n*/i,
+                        /^\s*Local:\s*.*(?:\r?\n)+/i,
                         ""
                     );
+
+
+                mensagemRecebida =
+                    mensagemRecebida.trim();
 
 
                 // =================================================
                 // MENSAGEM OFICIAL
                 // =================================================
                 //
-                // Agora o código B.XX fica registrado junto
-                // com o nome do ambiente.
+                // AGORA FICA:
+                //
+                // Código do local: B.14
+                //
+                // Local: T.I
+                //
+                // Solicitação:
+                // - Papel toalha
+                //
+                // SEM DUPLICAÇÃO.
                 //
                 // =================================================
 
@@ -716,15 +963,18 @@ export default {
                     "Criando chamado:"
                 );
 
+
                 console.log(
                     "Código:",
                     codigo
                 );
 
+
                 console.log(
                     "Local:",
                     local
                 );
+
 
                 console.log(
                     "Assunto:",
@@ -732,8 +982,14 @@ export default {
                 );
 
 
+                console.log(
+                    "Mensagem oficial:",
+                    mensagemOficial
+                );
+
+
                 // =================================================
-                // 1. CRIA O CHAMADO
+                // 1. CRIA CHAMADO
                 // =================================================
 
                 const respostaCriacao =
@@ -840,10 +1096,6 @@ export default {
                 }
 
 
-                // =================================================
-                // PEGA ID DO CHAMADO
-                // =================================================
-
                 const ticket_id =
 
                     dadosCriacao.ticket_id ||
@@ -928,6 +1180,7 @@ export default {
 
                     "🔗 CONCLUIR SOLICITAÇÃO:\n\n" +
                     linkConclusao
+
                 );
 
 
@@ -1350,10 +1603,12 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
                                 "ID do chamado não informado."
+
                         },
 
                         400
@@ -1370,10 +1625,12 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
                                 "Nome da colaboradora não informado."
+
                         },
 
                         400
@@ -1395,10 +1652,12 @@ export default {
                     return respostaJSON(
 
                         {
+
                             sucesso: false,
 
                             mensagem:
                                 "Token do TomTicket não configurado na API."
+
                         },
 
                         500
@@ -1572,7 +1831,8 @@ export default {
                         nome,
 
                     resposta_id:
-                        resultado.id || null,
+                        resultado.id ||
+                        null,
 
                     tomticket:
                         resultado
@@ -1622,10 +1882,12 @@ export default {
         return respostaJSON(
 
             {
+
                 sucesso: false,
 
                 mensagem:
                     "Rota não encontrada."
+
             },
 
             404
