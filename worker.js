@@ -40,6 +40,7 @@ const LOCAIS_QR = {
 // ============================================================
 
 const DEPARTMENT_ID = "2d507dafee35b29d9e5852d9b0c4ce2c";
+const GLEICE_OPERATOR_ID = "f2993967f0eaaa58f72ad1d95c7333fd";
 
 // ============================================================
 // URL DO CONCLUIR.HTML
@@ -120,6 +121,50 @@ export default {
         mensagem: "API do sistema de solicitações funcionando",
         locais_qr: Object.keys(LOCAIS_QR).length
       });
+    }
+
+    // ====================================================
+    // GET /debug/atendentes - LISTA ATENDENTES DO DEPARTAMENTO
+    // (rota temporária, só para confirmar operator_id - remover depois)
+    // ====================================================
+
+    if (request.method === "GET" && url.pathname === "/debug/atendentes") {
+      try {
+        if (!env.TOMTICKET_TOKEN) {
+          return respostaJSON(
+            { sucesso: false, mensagem: "Token do TomTicket não configurado na API." },
+            500
+          );
+        }
+
+        const departamento =
+          url.searchParams.get("department_id") || DEPARTMENT_ID;
+
+        const respostaAtendentes = await fetch(
+          "https://api.tomticket.com/v2.0/department/operator/list?department_id=" +
+          encodeURIComponent(departamento),
+          {
+            headers: {
+              "Authorization": `Bearer ${env.TOMTICKET_TOKEN}`,
+              "Accept": "application/json"
+            }
+          }
+        );
+
+        const { dados } = await parseRespostaTomTicket(respostaAtendentes);
+
+        return respostaJSON({
+          sucesso: !tomTicketFalhou(respostaAtendentes, dados),
+          department_id: departamento,
+          status_tomticket: respostaAtendentes.status,
+          resposta_tomticket: dados
+        });
+      } catch (error) {
+        return respostaJSON(
+          { sucesso: false, mensagem: "Erro ao consultar atendentes.", erro: error.message },
+          500
+        );
+      }
     }
 
     // ====================================================
@@ -372,6 +417,50 @@ export default {
         }
 
         // --------------------------------------------------
+        // VÍNCULO DA ATENDENTE (Gleice)
+        // Só operator_id - mandar department_id junto é
+        // rejeitado como "Same department" pelo TomTicket,
+        // já que o chamado já nasce nesse departamento.
+        // Se a distribuição automática do TomTicket já colocou
+        // a Gleice, a API recusa com "Same operator" - isso NÃO
+        // é erro real, o resultado já é o esperado.
+        // --------------------------------------------------
+
+        const dadosVinculo = new FormData();
+        dadosVinculo.append("ticket_id", String(ticket_id));
+        dadosVinculo.append("operator_id", GLEICE_OPERATOR_ID);
+
+        const respostaVinculo = await fetch("https://api.tomticket.com/v2.0/ticket/transfer", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.TOMTICKET_TOKEN}`
+          },
+          body: dadosVinculo
+        });
+
+        const { dados: dadosVinculoResultado } = await parseRespostaTomTicket(respostaVinculo);
+
+        const jaEstaComGleice =
+          typeof dadosVinculoResultado.message === "string" &&
+          dadosVinculoResultado.message.toLowerCase().includes("same operator");
+
+        if (!jaEstaComGleice && tomTicketFalhou(respostaVinculo, dadosVinculoResultado)) {
+          return respostaJSON(
+            {
+              sucesso: false,
+              etapa: "vinculo_atendente",
+              mensagem: "Chamado criado, mas não foi possível vincular a atendente responsável.",
+              chamado_criado: true,
+              ticket_id,
+              local_code: codigo,
+              local,
+              resposta_tomticket: dadosVinculoResultado
+            },
+            500
+          );
+        }
+
+        // --------------------------------------------------
         // Link de conclusão (id + local, como concluir.html espera)
         // --------------------------------------------------
 
@@ -426,20 +515,20 @@ export default {
 
         // --------------------------------------------------
         // SUCESSO
-        // (sem etapa de transferência - department_id já
-        // definiu o departamento correto na criação)
         // --------------------------------------------------
 
         return respostaJSON({
           sucesso: true,
-          mensagem: "Chamado criado e link de conclusão inserido com sucesso.",
+          mensagem: "Chamado criado, vinculado à atendente e link de conclusão inserido com sucesso.",
           ticket_id,
           local_code: codigo,
           local,
           subject: assuntoOficial,
           link_conclusao: linkConclusao,
           department_id: DEPARTMENT_ID,
+          operator_id: GLEICE_OPERATOR_ID,
           criacao: dadosCriacao,
+          vinculo: dadosVinculoResultado,
           link: dadosLinkResultado
         });
       } catch (error) {
