@@ -82,6 +82,22 @@ function tomTicketFalhou(resposta, dados) {
   );
 }
 
+async function notificarGoogleChat(env, texto) {
+  if (!env.GOOGLE_CHAT_WEBHOOK_URL) return;
+
+  try {
+    const resposta = await fetch(env.GOOGLE_CHAT_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=UTF-8" },
+      body: JSON.stringify({ text: texto })
+    });
+
+    console.log("Status Google Chat:", resposta.status);
+  } catch (error) {
+    console.error("ERRO AO ENVIAR NOTIFICAÇÃO GOOGLE CHAT:", error);
+  }
+}
+
 // ============================================================
 // WORKER
 // ============================================================
@@ -397,6 +413,18 @@ export default {
         }
 
         // --------------------------------------------------
+        // NOTIFICAÇÃO GOOGLE CHAT
+        // --------------------------------------------------
+
+        await notificarGoogleChat(
+          env,
+          "🚨 NOVA SOLICITAÇÃO\n\n" +
+          "📍 Local: " + codigo + " — " + local + "\n" +
+          mensagemRecebida +
+          "\n\n🔗 Concluir solicitação:\n" + linkConclusao
+        );
+
+        // --------------------------------------------------
         // SUCESSO
         // (sem etapa de transferência - department_id já
         // definiu o departamento correto na criação)
@@ -437,6 +465,7 @@ export default {
         const body = await request.json();
         const ticket_id = String(body.ticket_id || "").trim();
         const nome = String(body.nome || "").trim();
+        const local_code = String(body.local_code || "").trim();
 
         if (!ticket_id) {
           return respostaJSON(
@@ -496,6 +525,19 @@ export default {
             500
           );
         }
+
+        // --------------------------------------------------
+        // NOTIFICAÇÃO GOOGLE CHAT
+        // --------------------------------------------------
+
+        const localConcluido = LOCAIS_QR[local_code] || local_code || "não informado";
+
+        await notificarGoogleChat(
+          env,
+          "✅ Solicitação concluída.\n\n" +
+          "Local: " + local_code + " — " + localConcluido +
+          "\n\nRealizado por: " + nome
+        );
 
         return respostaJSON({
           sucesso: true,
