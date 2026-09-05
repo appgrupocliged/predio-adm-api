@@ -40,6 +40,7 @@ const LOCAIS_QR = {
 // ============================================================
 
 const DEPARTMENT_ID = "2d507dafee35b29d9e5852d9b0c4ce2c";
+const GLEICE_OPERATOR_ID = "f2993967f0eaaa58f72ad1d95c7333fd";
 
 // ============================================================
 // URL DO CONCLUIR.HTML
@@ -372,6 +373,43 @@ export default {
         }
 
         // --------------------------------------------------
+        // VÍNCULO DA ATENDENTE (Gleice)
+        // Evita que o TomTicket distribua automaticamente
+        // o chamado entre os atendentes do departamento.
+        // --------------------------------------------------
+
+        const dadosVinculo = new URLSearchParams();
+        dadosVinculo.append("ticket_id", String(ticket_id));
+        dadosVinculo.append("operator_id", GLEICE_OPERATOR_ID);
+
+        const respostaVinculo = await fetch("https://api.tomticket.com/v2.0/ticket/operator/link", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": `Bearer ${env.TOMTICKET_TOKEN}`
+          },
+          body: dadosVinculo.toString()
+        });
+
+        const { dados: dadosVinculoResultado } = await parseRespostaTomTicket(respostaVinculo);
+
+        if (tomTicketFalhou(respostaVinculo, dadosVinculoResultado)) {
+          return respostaJSON(
+            {
+              sucesso: false,
+              etapa: "vinculo_atendente",
+              mensagem: "Chamado criado, mas não foi possível vincular a atendente responsável.",
+              chamado_criado: true,
+              ticket_id,
+              local_code: codigo,
+              local,
+              resposta_tomticket: dadosVinculoResultado
+            },
+            500
+          );
+        }
+
+        // --------------------------------------------------
         // Link de conclusão (id + local, como concluir.html espera)
         // --------------------------------------------------
 
@@ -432,14 +470,16 @@ export default {
 
         return respostaJSON({
           sucesso: true,
-          mensagem: "Chamado criado e link de conclusão inserido com sucesso.",
+          mensagem: "Chamado criado, vinculado à atendente e link de conclusão inserido com sucesso.",
           ticket_id,
           local_code: codigo,
           local,
           subject: assuntoOficial,
           link_conclusao: linkConclusao,
           department_id: DEPARTMENT_ID,
+          operator_id: GLEICE_OPERATOR_ID,
           criacao: dadosCriacao,
+          vinculo: dadosVinculoResultado,
           link: dadosLinkResultado
         });
       } catch (error) {
