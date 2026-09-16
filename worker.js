@@ -535,6 +535,76 @@ export default {
     }
 
     // ====================================================
+    // GET /push/test - DISPARA UM PUSH DE TESTE MANUALMENTE
+    // (rota temporária de diagnóstico - remover depois de usar)
+    // Devolve o erro completo na própria resposta, sem precisar
+    // dos Real-time Logs do Cloudflare.
+    // ====================================================
+
+    if (request.method === "GET" && url.pathname === "/push/test") {
+      try {
+        const ticket_id = String(url.searchParams.get("ticket_id") || "").trim();
+
+        if (!ticket_id) {
+          return respostaJSON(
+            { sucesso: false, mensagem: "Informe ?ticket_id= na URL." },
+            400
+          );
+        }
+
+        if (!env.PUSH_SUBS) {
+          return respostaJSON(
+            { sucesso: false, mensagem: "PUSH_SUBS não está vinculado a este worker." },
+            500
+          );
+        }
+
+        const inscricaoBruta = await env.PUSH_SUBS.get(ticket_id);
+
+        if (!inscricaoBruta) {
+          return respostaJSON(
+            {
+              sucesso: false,
+              mensagem: "Nenhuma inscrição push salva para esse ticket_id (pode já ter sido apagada por um /concluir anterior, ou a inscrição nunca chegou a ser salva)."
+            },
+            404
+          );
+        }
+
+        const subscription = JSON.parse(inscricaoBruta);
+
+        const pushResposta = await enviarWebPush(
+          subscription,
+          {
+            title: "Teste de push 🔔",
+            body: "Se você recebeu isso, o push está funcionando.",
+            url: "./"
+          },
+          env
+        );
+
+        const textoRespostaPush = await pushResposta.text();
+
+        return respostaJSON({
+          sucesso: pushResposta.ok,
+          ticket_id,
+          status_servico_push: pushResposta.status,
+          resposta_servico_push: textoRespostaPush || "(vazio - normal em caso de sucesso)"
+        });
+      } catch (error) {
+        return respostaJSON(
+          {
+            sucesso: false,
+            mensagem: "Erro ao testar envio do push.",
+            erro: error.message,
+            stack: error.stack
+          },
+          500
+        );
+      }
+    }
+
+    // ====================================================
     // POST /push/subscribe - SALVA A INSCRIÇÃO PUSH DO CELULAR
     // ====================================================
 
