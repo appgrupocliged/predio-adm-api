@@ -56,7 +56,22 @@ const CUSTOMER_ID = "appgrupocliged@gmail.com";
 const CUSTOMER_ID_TYPE = "E";
 
 // ============================================================
-// HELPERS
+// JUSTIFICATIVA PADRÃO (SLA de inicialização/deadline vencido)
+// ============================================================
+
+const JUSTIFICATIVA_PADRAO =
+  "Chamado concluído pelo colaborador via QR Code. Atendimento fora do prazo de SLA.";
+
+// ============================================================
+// WEB PUSH - CHAVE PÚBLICA VAPID
+// (a chave privada fica no secret env.VAPID_PRIVATE_KEY)
+// ============================================================
+
+const VAPID_PUBLIC_KEY =
+  "BGAlUJ8Em1383y6fia0yoUigAM7WLKwLZ4_7mS1fhVZMmb6khjptEG6EDxH89trpvwHG7u1yexhGSJWzbvwpvqw";
+
+// ============================================================
+// HELPERS GERAIS
 // ============================================================
 
 function respostaJSON(dados, status = 200) {
@@ -68,7 +83,6 @@ function respostaJSON(dados, status = 200) {
 
 async function parseRespostaTomTicket(resposta) {
   const texto = await resposta.text();
-
   try {
     return { dados: JSON.parse(texto), texto };
   } catch {
@@ -82,6 +96,40 @@ function tomTicketFalhou(resposta, dados) {
     dados.error === true ||
     dados.success === false
   );
+}
+
+function exigeJustificativa(resultado) {
+  return (
+    resultado &&
+    resultado.error === true &&
+    typeof resultado.message === "string" &&
+    (resultado.message.toLowerCase().includes("justify") ||
+     resultado.message.toLowerCase().includes("expired"))
+  );
+}
+
+async function finalizarChamadoTomTicket(ticket_id, mensagem, env, comJustificativa = false) {
+  const dados = new URLSearchParams();
+  dados.append("ticket_id", ticket_id);
+  dados.append("message", mensagem);
+
+  if (comJustificativa) {
+    dados.append("startup_justification", JUSTIFICATIVA_PADRAO);
+    dados.append("deadline_justification", JUSTIFICATIVA_PADRAO);
+  }
+
+  const resposta = await fetch("https://api.tomticket.com/v2.0/ticket/finish", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Bearer ${env.TOMTICKET_TOKEN}`
+    },
+    body: dados.toString()
+  });
+
+  const { dados: resultado, texto } = await parseRespostaTomTicket(resposta);
+
+  return { resposta, resultado, texto };
 }
 
 async function notificarGoogleChat(env, texto) {
@@ -101,17 +149,200 @@ async function notificarGoogleChat(env, texto) {
 }
 
 // ============================================================
+// WEB PUSH - CRIPTOGRAFIA (RFC 8291) E ASSINATURA VAPID (RFC 8292)
+// Implementado só com Web Crypto nativo (sem bibliotecas externas),
+// para funcionar colando direto no editor do Cloudflare.
+// ============================================================
+
+function base64UrlToUint8Array(base64url) {
+  const padding = "=".repeat((4 - (base64url.length % 4)) % 4);
+  const base64 = (base64url + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const array = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) {
+    array[i] = raw.charCodeAt(i);
+  }
+  return array;
+}
+
+function uint8ArrayToBase64Url(bytes) {
+  let binary = "";
+  bytes.forEach((b) => (binary += String.fromCharCode(b)));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function concatUint8Arrays(...arrays) {
+  const total = arrays.reduce((soma, arr) => soma + arr.length, 0);
+  const resultado = new Uint8Array(total);
+  let offset = 0;
+  for (const arr of arrays) {
+    resultado.set(arr, offset);
+    offset += arr.length;
+  }
+  return resultado;
+}
+
+async function hkdf(salt, ikm, info, length) {
+  const chave = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt, info },
+    chave,
+    length * 8
+  );
+  return new Uint8Array(bits);
+}
+
+async function importarChavePrivadaVapid(env) {
+  const publicBytes = base64UrlToUint8Array(VAPID_PUBLIC_KEY);
+  const x = publicBytes.slice(1, 33);
+  const y = publicBytes.slice(33, 65);
+  const d = base64UrlToUint8Array(env.VAPID_PRIVATE_KEY);
+
+  const jwk = {
+    kty: "EC",
+    crv: "P-256",
+    x: uint8ArrayToBase64Url(x),
+    y: uint8ArrayToBase64Url(y),
+    d: uint8ArrayToBase64Url(d),
+    ext: true
+  };
+
+  return crypto.subtle.importKey(
+    "jwk",
+    jwk,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"]
+  );
+}
+
+async function gerarVapidJWT(audience, env) {
+  const header = { typ: "JWT", alg: "ES256" };
+  const payload = {
+    aud: audience,
+    exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60,
+    sub: "mailto:appgrupocliged@gmail.com"
+  };
+
+  const encoder = new TextEncoder();
+  const headerB64 = uint8ArrayToBase64Url(encoder.encode(JSON.stringify(header)));
+  const payloadB64 = uint8ArrayToBase64Url(encoder.encode(JSON.stringify(payload)));
+  const signingInput = headerB64 + "." + payloadB64;
+
+  const privateKey = await importarChavePrivadaVapid(env);
+  const signature = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    privateKey,
+    encoder.encode(signingInput)
+  );
+
+  return signingInput + "." + uint8ArrayToBase64Url(new Uint8Array(signature));
+}
+
+async function enviarWebPush(subscription, payloadObj, env) {
+  const endpoint = subscription.endpoint;
+  const clientPublicKeyBytes = base64UrlToUint8Array(subscription.keys.p256dh);
+  const authSecret = base64UrlToUint8Array(subscription.keys.auth);
+  const encoder = new TextEncoder();
+
+  // Par de chaves efêmero, gerado a cada envio
+  const ephemeralKeyPair = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" },
+    true,
+    ["deriveBits"]
+  );
+
+  const ephemeralPublicKeyBytes = new Uint8Array(
+    await crypto.subtle.exportKey("raw", ephemeralKeyPair.publicKey)
+  );
+
+  const clientPublicKey = await crypto.subtle.importKey(
+    "raw",
+    clientPublicKeyBytes,
+    { name: "ECDH", namedCurve: "P-256" },
+    false,
+    []
+  );
+
+  const segredoCompartilhado = new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: "ECDH", public: clientPublicKey },
+      ephemeralKeyPair.privateKey,
+      256
+    )
+  );
+
+  const infoIkm = concatUint8Arrays(
+    encoder.encode("WebPush: info\0"),
+    clientPublicKeyBytes,
+    ephemeralPublicKeyBytes
+  );
+
+  const ikm = await hkdf(authSecret, segredoCompartilhado, infoIkm, 32);
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  const cekBytes = await hkdf(
+    salt,
+    ikm,
+    encoder.encode("Content-Encoding: aes128gcm\0"),
+    16
+  );
+
+  const nonce = await hkdf(
+    salt,
+    ikm,
+    encoder.encode("Content-Encoding: nonce\0"),
+    12
+  );
+
+  const cekKey = await crypto.subtle.importKey("raw", cekBytes, "AES-GCM", false, ["encrypt"]);
+
+  const textoPlano = concatUint8Arrays(
+    encoder.encode(JSON.stringify(payloadObj)),
+    new Uint8Array([0x02]) // delimitador de último registro (RFC 8188)
+  );
+
+  const textoCifrado = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, cekKey, textoPlano)
+  );
+
+  const recordSize = 4096;
+  const rsBytes = new Uint8Array(4);
+  new DataView(rsBytes.buffer).setUint32(0, recordSize, false);
+
+  const cabecalho = concatUint8Arrays(
+    salt,
+    rsBytes,
+    new Uint8Array([ephemeralPublicKeyBytes.length]),
+    ephemeralPublicKeyBytes
+  );
+
+  const corpo = concatUint8Arrays(cabecalho, textoCifrado);
+
+  const origemEndpoint = new URL(endpoint).origin;
+  const jwt = await gerarVapidJWT(origemEndpoint, env);
+
+  return fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Content-Encoding": "aes128gcm",
+      "TTL": "86400",
+      "Authorization": `vapid t=${jwt}, k=${VAPID_PUBLIC_KEY}`
+    },
+    body: corpo
+  });
+}
+
+// ============================================================
 // WORKER
 // ============================================================
 
 export default {
   async fetch(request, env) {
-
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: CORS_HEADERS
-      });
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
     const url = new URL(request.url);
@@ -135,13 +366,9 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/debug/atendentes") {
       try {
-
         if (!env.TOMTICKET_TOKEN) {
           return respostaJSON(
-            {
-              sucesso: false,
-              mensagem: "Token do TomTicket não configurado na API."
-            },
+            { sucesso: false, mensagem: "Token do TomTicket não configurado na API." },
             500
           );
         }
@@ -160,8 +387,7 @@ export default {
           }
         );
 
-        const { dados } =
-          await parseRespostaTomTicket(respostaAtendentes);
+        const { dados } = await parseRespostaTomTicket(respostaAtendentes);
 
         return respostaJSON({
           sucesso: !tomTicketFalhou(respostaAtendentes, dados),
@@ -169,15 +395,9 @@ export default {
           status_tomticket: respostaAtendentes.status,
           resposta_tomticket: dados
         });
-
       } catch (error) {
-
         return respostaJSON(
-          {
-            sucesso: false,
-            mensagem: "Erro ao consultar atendentes.",
-            erro: error.message
-          },
+          { sucesso: false, mensagem: "Erro ao consultar atendentes.", erro: error.message },
           500
         );
       }
@@ -189,28 +409,19 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/status") {
       try {
-
-        const ticket_id =
-          String(url.searchParams.get("id") || "").trim();
+        const ticket_id = String(url.searchParams.get("id") || "").trim();
 
         if (!ticket_id) {
           return respostaJSON(
-            {
-              sucesso: false,
-              mensagem: "ID do chamado não informado."
-            },
+            { sucesso: false, mensagem: "ID do chamado não informado." },
             400
           );
         }
 
         if (!env.TOMTICKET_TOKEN) {
           console.error("TOMTICKET_TOKEN não configurado.");
-
           return respostaJSON(
-            {
-              sucesso: false,
-              mensagem: "Token do TomTicket não configurado na API."
-            },
+            { sucesso: false, mensagem: "Token do TomTicket não configurado na API." },
             500
           );
         }
@@ -227,11 +438,9 @@ export default {
           }
         });
 
-        const { dados: dadosStatus } =
-          await parseRespostaTomTicket(respostaStatus);
+        const { dados: dadosStatus } = await parseRespostaTomTicket(respostaStatus);
 
         if (tomTicketFalhou(respostaStatus, dadosStatus)) {
-
           return respostaJSON(
             {
               sucesso: false,
@@ -241,25 +450,19 @@ export default {
               status_tomticket: respostaStatus.status,
               resposta_tomticket: dadosStatus
             },
-            respostaStatus.status >= 400
-              ? respostaStatus.status
-              : 500
+            respostaStatus.status >= 400 ? respostaStatus.status : 500
           );
         }
 
         const dados = dadosStatus.data || dadosStatus;
 
         // --------------------------------------------------
-        // Extração do status
-        // (current_status > status > situation)
+        // Extração do status (current_status > status > situation)
         // --------------------------------------------------
 
         let statusObjeto = dados.current_status || null;
 
-        if (!statusObjeto &&
-            dados.status &&
-            !Array.isArray(dados.status)) {
-
+        if (!statusObjeto && dados.status && !Array.isArray(dados.status)) {
           statusObjeto = dados.status;
         }
 
@@ -272,76 +475,36 @@ export default {
         let statusApplyDate = null;
 
         if (typeof statusObjeto === "string") {
-
           status = statusObjeto;
-
-        } else if (
-          statusObjeto &&
-          typeof statusObjeto === "object"
-        ) {
-
-          status =
-            statusObjeto.description ||
-            statusObjeto.name ||
-            statusObjeto.status ||
-            null;
-
+        } else if (statusObjeto && typeof statusObjeto === "object") {
+          status = statusObjeto.description || statusObjeto.name || statusObjeto.status || null;
           statusId = statusObjeto.id || null;
           statusApplyDate = statusObjeto.apply_date || null;
         }
 
-        if (
-          !status &&
-          Array.isArray(dados.status) &&
-          dados.status.length > 0
-        ) {
-
-          const ultimo =
-            dados.status[dados.status.length - 1];
-
+        if (!status && Array.isArray(dados.status) && dados.status.length > 0) {
+          const ultimo = dados.status[dados.status.length - 1];
           if (ultimo) {
-
-            status =
-              ultimo.description ||
-              ultimo.name ||
-              ultimo.status ||
-              null;
-
+            status = ultimo.description || ultimo.name || ultimo.status || null;
             statusId = ultimo.id || null;
             statusApplyDate = ultimo.apply_date || null;
           }
         }
 
         const situacao = dados.situation || null;
-
         let situationId = null;
         let situationDescription = null;
         let situationApplyDate = null;
 
-        if (
-          situacao &&
-          typeof situacao === "object"
-        ) {
-
+        if (situacao && typeof situacao === "object") {
           situationId = situacao.id || null;
-          situationDescription =
-            situacao.description || null;
-
-          situationApplyDate =
-            situacao.apply_date || null;
+          situationDescription = situacao.description || null;
+          situationApplyDate = situacao.apply_date || null;
         }
 
-        if (!status && situationDescription) {
-          status = situationDescription;
-        }
-
-        if (!statusId && situationId) {
-          statusId = situationId;
-        }
-
-        if (!statusApplyDate && situationApplyDate) {
-          statusApplyDate = situationApplyDate;
-        }
+        if (!status && situationDescription) status = situationDescription;
+        if (!statusId && situationId) statusId = situationId;
+        if (!statusApplyDate && situationApplyDate) statusApplyDate = situationApplyDate;
 
         return respostaJSON({
           sucesso: true,
@@ -357,11 +520,8 @@ export default {
           current_status: dados.current_status || null,
           data: dados
         });
-
       } catch (error) {
-
         console.error("ERRO AO CONSULTAR STATUS:", error);
-
         return respostaJSON(
           {
             sucesso: false,
@@ -375,57 +535,73 @@ export default {
     }
 
     // ====================================================
-    // POST /solicitacao - CRIAÇÃO DO CHAMADO
+    // POST /push/subscribe - SALVA A INSCRIÇÃO PUSH DO CELULAR
     // ====================================================
 
-    if (
-      request.method === "POST" &&
-      url.pathname === "/solicitacao"
-    ) {
-
+    if (request.method === "POST" && url.pathname === "/push/subscribe") {
       try {
-
         const body = await request.json();
+        const ticket_id = String(body.ticket_id || "").trim();
+        const subscription = body.subscription;
 
-        const {
-          local_code,
-          category_id,
-          message,
-          priority
-        } = body;
-
-        if (!local_code) {
-
+        if (!ticket_id || !subscription || !subscription.endpoint) {
           return respostaJSON(
-            {
-              sucesso: false,
-              mensagem: "Código do local não informado."
-            },
+            { sucesso: false, mensagem: "Dados de inscrição incompletos." },
             400
           );
         }
 
-        const codigo =
-          String(local_code)
-            .toUpperCase()
-            .trim();
+        if (!env.PUSH_SUBS) {
+          console.error("KV PUSH_SUBS não configurado.");
+          return respostaJSON(
+            { sucesso: false, mensagem: "Armazenamento de inscrições push não configurado na API." },
+            500
+          );
+        }
 
+        await env.PUSH_SUBS.put(ticket_id, JSON.stringify(subscription));
+
+        return respostaJSON({
+          sucesso: true,
+          mensagem: "Inscrição para notificação push salva.",
+          ticket_id
+        });
+      } catch (error) {
+        console.error("ERRO AO SALVAR INSCRIÇÃO PUSH:", error);
+        return respostaJSON(
+          { sucesso: false, mensagem: "Erro ao salvar inscrição push.", erro: error.message },
+          500
+        );
+      }
+    }
+
+    // ====================================================
+    // POST /solicitacao - CRIAÇÃO DO CHAMADO
+    // ====================================================
+
+    if (request.method === "POST" && url.pathname === "/solicitacao") {
+      try {
+        const body = await request.json();
+        const { local_code, category_id, message, priority } = body;
+
+        if (!local_code) {
+          return respostaJSON(
+            { sucesso: false, mensagem: "Código do local não informado." },
+            400
+          );
+        }
+
+        const codigo = String(local_code).toUpperCase().trim();
         const local = LOCAIS_QR[codigo];
 
         if (!local) {
-
           return respostaJSON(
-            {
-              sucesso: false,
-              mensagem: "Código de local inválido.",
-              codigo_recebido: codigo
-            },
+            { sucesso: false, mensagem: "Código de local inválido.", codigo_recebido: codigo },
             400
           );
         }
 
         if (!category_id || !message) {
-
           return respostaJSON(
             {
               sucesso: false,
@@ -441,25 +617,18 @@ export default {
         }
 
         if (!env.TOMTICKET_TOKEN) {
-
           console.error("TOMTICKET_TOKEN não configurado.");
-
           return respostaJSON(
-            {
-              sucesso: false,
-              mensagem: "Token do TomTicket não configurado na API."
-            },
+            { sucesso: false, mensagem: "Token do TomTicket não configurado na API." },
             500
           );
         }
 
-        const assuntoOficial =
-          "Solicitação - " + local;
+        const assuntoOficial = "Solicitação - " + local;
 
-        let mensagemRecebida =
-          String(message)
-            .replace(/\\n/g, "\n")
-            .replace(/^Local:.*\n*/i, "");
+        let mensagemRecebida = String(message)
+          .replace(/\\n/g, "\n")
+          .replace(/^Local:.*\n*/i, "");
 
         const mensagemOficial =
           "Código do local: " + codigo + "\n" +
@@ -467,86 +636,40 @@ export default {
           mensagemRecebida;
 
         // --------------------------------------------------
-        // Criação do chamado
+        // Criação do chamado (department_id já define o
+        // departamento - o TomTicket cai automaticamente na
+        // fila "Novos Chamados" desse departamento, sem
+        // precisar de uma transferência posterior)
         // --------------------------------------------------
 
-        const dadosCriar =
-          new URLSearchParams();
+        const dadosCriar = new URLSearchParams();
+        dadosCriar.append("customer_id", CUSTOMER_ID);
+        dadosCriar.append("customer_id_type", CUSTOMER_ID_TYPE);
+        dadosCriar.append("department_id", DEPARTMENT_ID);
+        dadosCriar.append("category_id", String(category_id));
+        dadosCriar.append("subject", assuntoOficial);
+        dadosCriar.append("message", mensagemOficial);
+        dadosCriar.append("priority", String(priority || "2"));
 
-        dadosCriar.append(
-          "customer_id",
-          CUSTOMER_ID
-        );
+        const respostaCriacao = await fetch("https://api.tomticket.com/v2.0/ticket/new", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": `Bearer ${env.TOMTICKET_TOKEN}`
+          },
+          body: dadosCriar.toString()
+        });
 
-        dadosCriar.append(
-          "customer_id_type",
-          CUSTOMER_ID_TYPE
-        );
+        const { dados: dadosCriacao } = await parseRespostaTomTicket(respostaCriacao);
 
-        dadosCriar.append(
-          "department_id",
-          DEPARTMENT_ID
-        );
-
-        dadosCriar.append(
-          "category_id",
-          String(category_id)
-        );
-
-        dadosCriar.append(
-          "subject",
-          assuntoOficial
-        );
-
-        dadosCriar.append(
-          "message",
-          mensagemOficial
-        );
-
-        dadosCriar.append(
-          "priority",
-          String(priority || "2")
-        );
-
-        const respostaCriacao =
-          await fetch(
-            "https://api.tomticket.com/v2.0/ticket/new",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/x-www-form-urlencoded",
-                "Authorization":
-                  `Bearer ${env.TOMTICKET_TOKEN}`
-              },
-              body: dadosCriar.toString()
-            }
-          );
-
-        const {
-          dados: dadosCriacao
-        } =
-          await parseRespostaTomTicket(
-            respostaCriacao
-          );
-
-        if (
-          tomTicketFalhou(
-            respostaCriacao,
-            dadosCriacao
-          )
-        ) {
-
+        if (tomTicketFalhou(respostaCriacao, dadosCriacao)) {
           return respostaJSON(
             {
               sucesso: false,
               etapa: "criacao",
-              mensagem:
-                "Erro ao criar chamado no TomTicket.",
-              status_tomticket:
-                respostaCriacao.status,
-              resposta_tomticket:
-                dadosCriacao
+              mensagem: "Erro ao criar chamado no TomTicket.",
+              status_tomticket: respostaCriacao.status,
+              resposta_tomticket: dadosCriacao
             },
             500
           );
@@ -559,13 +682,11 @@ export default {
           dadosCriacao.data?.id;
 
         if (!ticket_id) {
-
           return respostaJSON(
             {
               sucesso: false,
               etapa: "criacao",
-              mensagem:
-                "Chamado criado, mas o TomTicket não retornou o ticket_id.",
+              mensagem: "Chamado criado, mas o TomTicket não retornou o ticket_id.",
               tomticket: dadosCriacao
             },
             500
@@ -574,142 +695,84 @@ export default {
 
         // --------------------------------------------------
         // VÍNCULO DA ATENDENTE (Gleice)
+        // Só operator_id - mandar department_id junto é
+        // rejeitado como "Same department" pelo TomTicket,
+        // já que o chamado já nasce nesse departamento.
+        // Se a distribuição automática do TomTicket já colocou
+        // a Gleice, a API recusa com "Same operator" - isso NÃO
+        // é erro real, o resultado já é o esperado.
         // --------------------------------------------------
 
-        const dadosVinculo =
-          new FormData();
+        const dadosVinculo = new FormData();
+        dadosVinculo.append("ticket_id", String(ticket_id));
+        dadosVinculo.append("operator_id", GLEICE_OPERATOR_ID);
 
-        dadosVinculo.append(
-          "ticket_id",
-          String(ticket_id)
-        );
+        const respostaVinculo = await fetch("https://api.tomticket.com/v2.0/ticket/transfer", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.TOMTICKET_TOKEN}`
+          },
+          body: dadosVinculo
+        });
 
-        dadosVinculo.append(
-          "operator_id",
-          GLEICE_OPERATOR_ID
-        );
-
-        const respostaVinculo =
-          await fetch(
-            "https://api.tomticket.com/v2.0/ticket/transfer",
-            {
-              method: "POST",
-              headers: {
-                "Authorization":
-                  `Bearer ${env.TOMTICKET_TOKEN}`
-              },
-              body: dadosVinculo
-            }
-          );
-
-        const {
-          dados: dadosVinculoResultado
-        } =
-          await parseRespostaTomTicket(
-            respostaVinculo
-          );
+        const { dados: dadosVinculoResultado } = await parseRespostaTomTicket(respostaVinculo);
 
         const jaEstaComGleice =
           typeof dadosVinculoResultado.message === "string" &&
-          dadosVinculoResultado.message
-            .toLowerCase()
-            .includes("same operator");
+          dadosVinculoResultado.message.toLowerCase().includes("same operator");
 
-        if (
-          !jaEstaComGleice &&
-          tomTicketFalhou(
-            respostaVinculo,
-            dadosVinculoResultado
-          )
-        ) {
-
+        if (!jaEstaComGleice && tomTicketFalhou(respostaVinculo, dadosVinculoResultado)) {
           return respostaJSON(
             {
               sucesso: false,
               etapa: "vinculo_atendente",
-              mensagem:
-                "Chamado criado, mas não foi possível vincular a atendente responsável.",
+              mensagem: "Chamado criado, mas não foi possível vincular a atendente responsável.",
               chamado_criado: true,
               ticket_id,
               local_code: codigo,
               local,
-              resposta_tomticket:
-                dadosVinculoResultado
+              resposta_tomticket: dadosVinculoResultado
             },
             500
           );
         }
 
         // --------------------------------------------------
-        // Link de conclusão
+        // Link de conclusão (id + local, como concluir.html espera)
         // --------------------------------------------------
 
         const linkConclusao =
           CONCLUIR_URL +
-          "?id=" +
-          encodeURIComponent(
-            String(ticket_id)
-          ) +
-          "&local=" +
-          encodeURIComponent(codigo);
+          "?id=" + encodeURIComponent(String(ticket_id)) +
+          "&local=" + encodeURIComponent(codigo);
 
-        const dadosLink =
-          new URLSearchParams();
+        const dadosLink = new URLSearchParams();
+        dadosLink.append("ticket_id", String(ticket_id));
+        dadosLink.append("message", "🔗 CONCLUIR SOLICITAÇÃO:\n\n" + linkConclusao);
 
-        dadosLink.append(
-          "ticket_id",
-          String(ticket_id)
-        );
+        const respostaLink = await fetch("https://api.tomticket.com/v2.0/ticket/reply/customer", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": `Bearer ${env.TOMTICKET_TOKEN}`
+          },
+          body: dadosLink.toString()
+        });
 
-        dadosLink.append(
-          "message",
-          "🔗 CONCLUIR SOLICITAÇÃO:\n\n" +
-          linkConclusao
-        );
+        const { dados: dadosLinkResultado } = await parseRespostaTomTicket(respostaLink);
 
-        const respostaLink =
-          await fetch(
-            "https://api.tomticket.com/v2.0/ticket/reply/customer",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/x-www-form-urlencoded",
-                "Authorization":
-                  `Bearer ${env.TOMTICKET_TOKEN}`
-              },
-              body: dadosLink.toString()
-            }
-          );
-
-        const {
-          dados: dadosLinkResultado
-        } =
-          await parseRespostaTomTicket(
-            respostaLink
-          );
-
-        if (
-          tomTicketFalhou(
-            respostaLink,
-            dadosLinkResultado
-          )
-        ) {
-
+        if (tomTicketFalhou(respostaLink, dadosLinkResultado)) {
           return respostaJSON(
             {
               sucesso: false,
               etapa: "link_conclusao",
-              mensagem:
-                "Chamado criado, mas não foi possível inserir o link de conclusão.",
+              mensagem: "Chamado criado, mas não foi possível inserir o link de conclusão.",
               chamado_criado: true,
               ticket_id,
               local_code: codigo,
               local,
-              link_conclusao:
-                linkConclusao,
-              resposta_tomticket:
-                dadosLinkResultado
+              link_conclusao: linkConclusao,
+              resposta_tomticket: dadosLinkResultado
             },
             500
           );
@@ -721,16 +784,10 @@ export default {
 
         await notificarGoogleChat(
           env,
-
           "🚨 NOVA SOLICITAÇÃO\n\n" +
-          "📍 Local: " +
-          codigo +
-          " — " +
-          local +
-          "\n" +
+          "📍 Local: " + codigo + " — " + local + "\n" +
           mensagemRecebida +
-          "\n\n🔗 Concluir solicitação:\n" +
-          linkConclusao
+          "\n\n🔗 Concluir solicitação:\n" + linkConclusao
         );
 
         // --------------------------------------------------
@@ -739,8 +796,7 @@ export default {
 
         return respostaJSON({
           sucesso: true,
-          mensagem:
-            "Chamado criado, vinculado à atendente e link de conclusão inserido com sucesso.",
+          mensagem: "Chamado criado, vinculado à atendente e link de conclusão inserido com sucesso.",
           ticket_id,
           local_code: codigo,
           local,
@@ -752,17 +808,13 @@ export default {
           vinculo: dadosVinculoResultado,
           link: dadosLinkResultado
         });
-
       } catch (error) {
-
         console.error("ERRO NA API:", error);
-
         return respostaJSON(
           {
             sucesso: false,
             etapa: "worker",
-            mensagem:
-              "Erro interno ao processar a solicitação.",
+            mensagem: "Erro interno ao processar a solicitação.",
             erro: error.message
           },
           500
@@ -774,281 +826,68 @@ export default {
     // POST /concluir - CONCLUSÃO DA SOLICITAÇÃO
     // ====================================================
 
-    if (
-      request.method === "POST" &&
-      url.pathname === "/concluir"
-    ) {
-
+    if (request.method === "POST" && url.pathname === "/concluir") {
       try {
-
-        const body =
-          await request.json();
-
-        const ticket_id =
-          String(body.ticket_id || "")
-            .trim();
-
-        const nome =
-          String(body.nome || "")
-            .trim();
-
-        const local_code =
-          String(body.local_code || "")
-            .trim();
+        const body = await request.json();
+        const ticket_id = String(body.ticket_id || "").trim();
+        const nome = String(body.nome || "").trim();
+        const local_code = String(body.local_code || "").trim();
 
         if (!ticket_id) {
-
           return respostaJSON(
-            {
-              sucesso: false,
-              mensagem:
-                "ID do chamado não informado."
-            },
+            { sucesso: false, mensagem: "ID do chamado não informado." },
             400
           );
         }
 
         if (nome.length < 2) {
-
           return respostaJSON(
-            {
-              sucesso: false,
-              mensagem:
-                "Nome da colaboradora não informado."
-            },
+            { sucesso: false, mensagem: "Nome da colaboradora não informado." },
             400
           );
         }
 
         if (!env.TOMTICKET_TOKEN) {
-
-          console.error(
-            "TOMTICKET_TOKEN não configurado."
-          );
-
+          console.error("TOMTICKET_TOKEN não configurado.");
           return respostaJSON(
-            {
-              sucesso: false,
-              mensagem:
-                "Token do TomTicket não configurado na API."
-            },
+            { sucesso: false, mensagem: "Token do TomTicket não configurado na API." },
             500
           );
         }
 
-        const mensagem =
-          "Solicitação concluída.\n\n" +
-          "Realizado por: " +
-          nome;
+        const mensagem = "Solicitação concluída.\n\nRealizado por: " + nome;
 
         // --------------------------------------------------
-        // PRIMEIRA TENTATIVA
-        // Finaliza normalmente
+        // Finaliza o chamado de verdade no TomTicket
+        // (/ticket/finish, não /ticket/reply/customer)
+        //
+        // 1ª tentativa: sem justificativa.
+        // Se o TomTicket recusar por SLA de inicialização ou
+        // deadline vencido, refaz automaticamente com a
+        // justificativa padrão - a colaboradora não precisa
+        // preencher nada.
         // --------------------------------------------------
 
-        const dados =
-          new URLSearchParams();
-
-        dados.append(
-          "ticket_id",
-          ticket_id
+        let { resposta, resultado, texto } = await finalizarChamadoTomTicket(
+          ticket_id, mensagem, env, false
         );
 
-        dados.append(
-          "message",
-          mensagem
-        );
-
-        let resposta =
-          await fetch(
-            "https://api.tomticket.com/v2.0/ticket/finish",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/x-www-form-urlencoded",
-                "Authorization":
-                  `Bearer ${env.TOMTICKET_TOKEN}`
-              },
-              body: dados.toString()
-            }
-          );
-
-        let {
-          dados: resultado,
-          texto
-        } =
-          await parseRespostaTomTicket(
-            resposta
-          );
-
-        // --------------------------------------------------
-        // TRATAMENTO AUTOMÁTICO
-        // INICIALIZAÇÃO EXPIRADA
-        // --------------------------------------------------
-
-        const mensagemErro =
-          String(
-            resultado?.message || ""
-          ).toLowerCase();
-
-        const inicializacaoExpirada =
-          resultado?.errorcode === 401 &&
-          mensagemErro.includes(
-            "initialization"
-          ) &&
-          mensagemErro.includes(
-            "expired"
-          );
-
-        // --------------------------------------------------
-        // TRATAMENTO AUTOMÁTICO
-        // DEADLINE EXPIRADO
-        // --------------------------------------------------
-
-        const deadlineExpirado =
-          resultado?.errorcode === 401 &&
-          mensagemErro.includes(
-            "deadline"
-          ) &&
-          mensagemErro.includes(
-            "expired"
-          );
-
-        // --------------------------------------------------
-        // SE A INICIALIZAÇÃO EXPIROU,
-        // TENTA NOVAMENTE COM startup_justification
-        // --------------------------------------------------
-
-        if (inicializacaoExpirada) {
-
-          console.log(
-            "Inicialização expirada. " +
-            "Tentando novamente com startup_justification."
-          );
-
-          const dadosJustificativa =
-            new URLSearchParams();
-
-          dadosJustificativa.append(
-            "ticket_id",
-            ticket_id
-          );
-
-          dadosJustificativa.append(
-            "message",
-            mensagem
-          );
-
-          dadosJustificativa.append(
-            "startup_justification",
-            "Finalização realizada automaticamente pelo sistema de solicitações do Prédio Administrativo Macaé após a conclusão da solicitação pela colaboradora."
-          );
-
-          resposta =
-            await fetch(
-              "https://api.tomticket.com/v2.0/ticket/finish",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type":
-                    "application/x-www-form-urlencoded",
-                  "Authorization":
-                    `Bearer ${env.TOMTICKET_TOKEN}`
-                },
-                body:
-                  dadosJustificativa.toString()
-              }
-            );
-
-          ({
-            dados: resultado,
-            texto
-          } =
-            await parseRespostaTomTicket(
-              resposta
-            ));
+        if (tomTicketFalhou(resposta, resultado) && exigeJustificativa(resultado)) {
+          ({ resposta, resultado, texto } = await finalizarChamadoTomTicket(
+            ticket_id, mensagem, env, true
+          ));
         }
 
-        // --------------------------------------------------
-        // SE O DEADLINE EXPIROU,
-        // TENTA NOVAMENTE COM deadline_justification
-        // --------------------------------------------------
-
-        else if (deadlineExpirado) {
-
-          console.log(
-            "Deadline expirado. " +
-            "Tentando novamente com deadline_justification."
-          );
-
-          const dadosJustificativa =
-            new URLSearchParams();
-
-          dadosJustificativa.append(
-            "ticket_id",
-            ticket_id
-          );
-
-          dadosJustificativa.append(
-            "message",
-            mensagem
-          );
-
-          dadosJustificativa.append(
-            "deadline_justification",
-            "Finalização realizada automaticamente pelo sistema de solicitações do Prédio Administrativo Macaé após a conclusão da solicitação pela colaboradora."
-          );
-
-          resposta =
-            await fetch(
-              "https://api.tomticket.com/v2.0/ticket/finish",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type":
-                    "application/x-www-form-urlencoded",
-                  "Authorization":
-                    `Bearer ${env.TOMTICKET_TOKEN}`
-                },
-                body:
-                  dadosJustificativa.toString()
-              }
-            );
-
-          ({
-            dados: resultado,
-            texto
-          } =
-            await parseRespostaTomTicket(
-              resposta
-            ));
-        }
-
-        // --------------------------------------------------
-        // SE AINDA DEU ERRO
-        // --------------------------------------------------
-
-        if (
-          tomTicketFalhou(
-            resposta,
-            resultado
-          )
-        ) {
-
+        if (tomTicketFalhou(resposta, resultado)) {
           return respostaJSON(
             {
               sucesso: false,
               etapa: "finalizacao_tomticket",
-              mensagem:
-                "TomTicket recusou a finalização do chamado.",
+              mensagem: "TomTicket recusou a finalização do chamado.",
               ticket_id,
-              status_tomticket:
-                resposta.status,
-              resposta_tomticket:
-                resultado,
-              texto_tomticket:
-                texto
+              status_tomticket: resposta.status,
+              resposta_tomticket: resultado,
+              texto_tomticket: texto
             },
             500
           );
@@ -1058,49 +897,63 @@ export default {
         // NOTIFICAÇÃO GOOGLE CHAT
         // --------------------------------------------------
 
-        const localConcluido =
-          LOCAIS_QR[local_code] ||
-          local_code ||
-          "não informado";
+        const localConcluido = LOCAIS_QR[local_code] || local_code || "não informado";
 
         await notificarGoogleChat(
           env,
-
           "✅ Solicitação concluída.\n\n" +
-          "Local: " +
-          local_code +
-          " — " +
-          localConcluido +
-          "\n\nRealizado por: " +
-          nome
+          "Local: " + local_code + " — " + localConcluido +
+          "\n\nRealizado por: " + nome
         );
 
         // --------------------------------------------------
-        // SUCESSO
+        // NOTIFICAÇÃO PUSH PARA QUEM ABRIU A SOLICITAÇÃO
+        // Só dispara se houver uma inscrição salva para esse
+        // ticket_id (o index.html salva ao pedir permissão).
+        // Funciona mesmo com a tela do celular bloqueada.
         // --------------------------------------------------
+
+        if (env.PUSH_SUBS) {
+          try {
+            const inscricaoBruta = await env.PUSH_SUBS.get(ticket_id);
+
+            if (inscricaoBruta) {
+              const subscription = JSON.parse(inscricaoBruta);
+
+              const pushResposta = await enviarWebPush(
+                subscription,
+                {
+                  title: "Solicitação concluída ✅",
+                  body: "Local: " + localConcluido,
+                  url: "./"
+                },
+                env
+              );
+
+              console.log("Status envio push:", pushResposta.status);
+
+              // Inscrição já cumpriu seu papel (ou expirou) - remove.
+              await env.PUSH_SUBS.delete(ticket_id);
+            }
+          } catch (error) {
+            console.error("ERRO AO ENVIAR NOTIFICAÇÃO PUSH:", error);
+          }
+        }
 
         return respostaJSON({
           sucesso: true,
-          mensagem:
-            "Solicitação concluída e chamado finalizado no TomTicket.",
+          mensagem: "Solicitação concluída e chamado finalizado no TomTicket.",
           ticket_id,
           nome,
           tomticket: resultado
         });
-
       } catch (error) {
-
-        console.error(
-          "ERRO NA CONCLUSÃO:",
-          error
-        );
-
+        console.error("ERRO NA CONCLUSÃO:", error);
         return respostaJSON(
           {
             sucesso: false,
             etapa: "concluir",
-            mensagem:
-              "Erro interno ao processar a conclusão.",
+            mensagem: "Erro interno ao processar a conclusão.",
             erro: error.message
           },
           500
@@ -1112,12 +965,6 @@ export default {
     // ROTA NÃO ENCONTRADA
     // ====================================================
 
-    return respostaJSON(
-      {
-        sucesso: false,
-        mensagem: "Rota não encontrada."
-      },
-      404
-    );
+    return respostaJSON({ sucesso: false, mensagem: "Rota não encontrada." }, 404);
   }
 };
