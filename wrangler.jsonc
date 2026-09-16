@@ -2,5 +2,11 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "predio-adm-api",
   "main": "./worker.js",
-  "compatibility_date": "2026-08-25"
+  "compatibility_date": "2026-08-25",
+  "kv_namespaces": [
+    {
+      "binding": "PUSH_SUBS",
+      "id": "b65184df4f304f489cbfd25ee57c0215"
+    }
+  ]
 }
