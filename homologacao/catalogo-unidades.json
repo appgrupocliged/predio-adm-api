@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "ambiente": "homologacao",
+  "default_unit": "ADM-MCE",
+  "units": {
+    "ADM-MCE": {
+      "name": "Prédio Administrativo Macaé",
+      "legacy_codes": true,
+      "locations": {
+        "B.01": "DIRETORIA",
+        "B.02": "CORREDOR AUTORIZAÇÃO",
+        "B.03": "FINANCEIRO",
+        "B.04": "RH",
+        "B.05": "COMPRAS",
+        "B.06": "ESTOQUE",
+        "B.07": "ESTOQUE",
+        "B.08": "CONTROLADORIA",
+        "B.09": "COWORKING",
+        "B.10": "CORREDOR REUNIÃO",
+        "B.11": "D.P",
+        "B.12": "CORREDOR CALL CENTER",
+        "B.13": "COMFORT ADM",
+        "B.14": "T.I",
+        "B.15": "CTA ADM",
+        "B.16": "MARKETING / INFRAESTRUTURA",
+        "B.17": "FATURAMENTO",
+        "B.18": "AUDITORIA",
+        "B.19": "QUALIDADE"
+      }
+    },
+    "CLI-MCE": {
+      "name": "Clínica CLIGED Macaé",
+      "locations": {
+        "B.01": "RECEPÇÃO PRINCIPAL CONSULTAS - BANHEIRO COMUM 1",
+        "B.02": "RECEPÇÃO PRINCIPAL CONSULTAS - BANHEIRO COMUM 2",
+        "B.03": "RECEPÇÃO 2 EXAMES - BANHEIRO COMUM",
+        "B.04": "RECEPÇÃO 2 EXAMES - BANHEIRO ACESSÍVEL",
+        "B.05": "SALA DE PREPARO",
+        "B.06": "2º PISO",
+        "B.07": "CONSULTÓRIO 2",
+        "B.08": "CONSULTÓRIO 4"
+      }
+    }
+  }
+}
