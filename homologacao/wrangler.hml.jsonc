@@ -3,7 +3,7 @@
   "name": "cliged-qr-hml-isolado",
   "main": "./worker-hml.mjs",
   "compatibility_date": "2026-08-25",
-  "workers_dev": false,
+  "workers_dev": true,
   "vars": {
     "CLIGED_AMBIENTE": "homologacao"
   }
