@@ -1,0 +1,25 @@
+name: Validacao QR multiunidade (sem deploy)
+on:
+  push:
+    branches:
+      - homologacao/multiunidade-v1
+    paths:
+      - 'homologacao/**'
+      - '.github/workflows/validacao-qr-hml.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Valida catalogo e identificacao de QR
+        run: node --test homologacao/resolver-unidades.test.mjs
+      - name: Valida endpoints HML sem TomTicket
+        run: node --test homologacao/worker-hml.test.mjs
