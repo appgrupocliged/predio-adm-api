@@ -1,6 +1,6 @@
 // Painel de homologação de QR Codes — sem operações TomTicket.
 export function htmlPainel() {
-  return \`<!doctype html>
+  return `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CLIGED | Homologação de QR Codes</title>
 <style>
@@ -89,5 +89,5 @@ fetch("catalogo").then(response=>{if(!response.ok)throw Error("Falha ao carregar
  if(requestedLocal && [...place.options].some(o=>o.value===requestedLocal))place.value=requestedLocal;
 }).catch(e=>{unit.replaceChildren();place.replaceChildren();status("Não foi possível carregar o catálogo: "+e.message,false);});
 })();
-</script></body></html>\`;
+</script></body></html>`;
 }
