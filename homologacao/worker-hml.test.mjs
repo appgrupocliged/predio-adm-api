@@ -30,4 +30,15 @@ for(const route of ["/solicitacao","/concluir","/status","/push/subscribe","/pus
 assert.equal((await chamada("/validar","POST",{unit_code:"CLI-MCE",local_code:"B.01"})).body.local.location_id,"CLI-MCE:B.01");
 assert.equal((await chamada("/validar","POST",{unit_code:"CLI-MCE",local_code:"B.05"})).body.local.local_name,"SALA RPA");
 assert.equal((await chamada("/validar","POST",{unit_code:"CLI-MCE",local_code:"B.09"})).body.local.local_name,"SALA EXAMES 2");
+
+// Painel HML disponível exclusivamente para consulta, sem operações reais.
+const responsePainel = await worker.fetch(new Request("https://cliged-hml.example/painel"),{});
+assert.equal(responsePainel.status,200);
+assert.match(responsePainel.headers.get("content-type"),/text\/html/);
+const htmlPainel = await responsePainel.text();
+assert.match(htmlPainel,/AMBIENTE DE HOMOLOGAÇÃO/);
+assert.match(htmlPainel,/VALIDAR IDENTIFICAÇÃO/);
+assert.match(htmlPainel,/fetch\("catalogo"\)/);
+assert.match(htmlPainel,/fetch\("validar"/);
+
 console.log("OK: 2 unidades, 28 locais, QR legado, banheiros clinica, bloqueios de operacoes reais");
