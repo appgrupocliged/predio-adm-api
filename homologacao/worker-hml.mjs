@@ -29,7 +29,7 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
-      const response = resposta(request, env, {}, 204);
+      const response = resposta(request, env, {}, 200);
       return new Response(null, { status: 204, headers: response.headers });
     }
 
