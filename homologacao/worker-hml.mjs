@@ -3,6 +3,7 @@
 // Não substituir ../worker.js de produção sem homologação completa.
 import catalogo from "./catalogo-unidades.json" with { type: "json" };
 import { resolverLocal } from "./resolver-unidades.mjs";
+import { htmlPainel } from "./painel-hml.mjs";
 
 const endpointsBloqueados = new Set(["/solicitacao", "/concluir", "/status", "/push/subscribe", "/push/test", "/debug/atendentes"]);
 
@@ -31,6 +32,18 @@ export default {
     if (request.method === "OPTIONS") {
       const response = resposta(request, env, {}, 200);
       return new Response(null, { status: 204, headers: response.headers });
+    }
+
+    if (request.method === "GET" && url.pathname === "/painel") {
+      return new Response(htmlPainel(), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          "X-Content-Type-Options": "nosniff"
+        }
+      });
     }
 
     if (request.method === "GET" && url.pathname === "/") {
