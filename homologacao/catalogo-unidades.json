@@ -35,10 +35,11 @@
         "B.02": "RECEPÇÃO PRINCIPAL CONSULTAS - BANHEIRO COMUM 2",
         "B.03": "RECEPÇÃO 2 EXAMES - BANHEIRO COMUM",
         "B.04": "RECEPÇÃO 2 EXAMES - BANHEIRO ACESSÍVEL",
-        "B.05": "SALA DE PREPARO",
+        "B.05": "SALA RPA",
         "B.06": "2º PISO",
         "B.07": "CONSULTÓRIO 2",
-        "B.08": "CONSULTÓRIO 4"
+        "B.08": "CONSULTÓRIO 4",
+        "B.09": "SALA EXAMES 2"
       }
     }
   }
