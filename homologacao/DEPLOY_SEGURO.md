@@ -21,10 +21,12 @@ A URL resultante deverá pertencer ao Worker `cliged-qr-hml-isolado` e jamais ao
 Apenas endpoints `GET /`, `GET /catalogo`, `POST /validar` e `OPTIONS` respondem; `/solicitacao`, `/concluir`, `/status`, `/push/subscribe`, `/push/test` ficam bloqueados.
 
 ## Plano de verificação
-- `GET /` informa 2 unidades, 27 locais;
-- `GET /catalogo` retorna ADM-MCE (19) e CLI-MCE (8);
+- `GET /` informa 2 unidades, 28 locais;
+- `GET /catalogo` retorna ADM-MCE (19) e CLI-MCE (9);
 - `POST /validar` com `{"local_code":"B.14"}` resulta ADM-MCE:B.14;
 - `POST /validar` com `{"unit_code":"CLI-MCE","local_code":"B.04"}` retorna banheiro acessível;
+- `POST /validar` com `{"unit_code":"CLI-MCE","local_code":"B.05"}` retorna Sala RPA;
+- `POST /validar` com `{"unit_code":"CLI-MCE","local_code":"B.09"}` retorna Sala Exames 2;
 - `POST /solicitacao` e `POST /concluir` devem retornar 503 sem acionar TomTicket.
 - Testar `predio-adm-api` somente com leitura, sem criar chamado real.
 
