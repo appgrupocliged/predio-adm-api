@@ -22,4 +22,29 @@ for (const entrada of [
 ]) assert.throws(()=>resolverLocal(catalogo,entrada));
 assert.equal(resolverLocal(catalogo,{unit_code:"CLI-MCE",local_code:"B.05"}).local_name,"SALA RPA");
 assert.equal(resolverLocal(catalogo,{unit_code:"CLI-MCE",local_code:"B.09"}).local_name,"SALA EXAMES 2");
-console.log("OK: 19 ADM + 9 clínica, compatibilidade, identidade, rejeições");
+// Verificação completa: 28 locais únicos por unidade, com código e nome corretos.
+const ids = new Set();
+let verificados = 0;
+for (const [codigoUnidade, unidade] of Object.entries(catalogo.units)) {
+  for (const [codigoLocal, nomeLocal] of Object.entries(unidade.locations)) {
+    const local = resolverLocal(catalogo, {
+      unit_code: codigoUnidade,
+      local_code: codigoLocal
+    });
+    assert.equal(local.location_id, codigoUnidade + ":" + codigoLocal);
+    assert.equal(local.unit_name, unidade.name);
+    assert.equal(local.local_name, nomeLocal);
+    assert.equal(local.legacy_link, false);
+    assert.equal(ids.has(local.location_id), false, "Identificador duplicado");
+    ids.add(local.location_id);
+    verificados++;
+    if (codigoUnidade === catalogo.default_unit) {
+      const legado = resolverLocal(catalogo, { local_code: codigoLocal });
+      assert.equal(legado.location_id, local.location_id);
+      assert.equal(legado.legacy_link, true);
+    }
+  }
+}
+assert.equal(verificados, 28);
+
+console.log("OK: 19 ADM + 9 clínica, compatibilidade, identidade, rejeições, 28 pontos verificados");
