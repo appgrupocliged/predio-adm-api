@@ -59,4 +59,19 @@ for (const unidade of catalogo) {
 assert.equal(totalPontos, 28);
 assert.equal((await chamada("/validar", "POST", { local_code: "B.01" })).body.local.location_id, "ADM-MCE:B.01");
 
+
+// As duas telas HML devem preservar elementos originais e não carregar o Worker de produção.
+for (const [route,required] of [
+  ["/solicitante?unidade=CLI-MCE&local=B.05",["Avise nossa equipe","Papel higiênico","SIMULAÇÃO","id=\"send\""]],
+  ["/atendimento?id=SIM-ABC12345&unidade=CLI-MCE&local=B.05",["Concluir solicitação","Nome da colaboradora","SIMULAÇÃO","id=\"concluir\""]]
+]) {
+  const response = await worker.fetch(new Request("https://cliged-hml.example"+route),{});
+  assert.equal(response.status,200);
+  assert.match(response.headers.get("content-type"),/text\/html/);
+  const html = await response.text();
+  for (const text of required) assert.ok(html.includes(text),"HTML HML sem: "+text);
+  assert.ok(!html.includes("predio-adm-api.appgrupocliged.workers.dev"),"Frontend com API de produção!");
+  assert.ok(!html.includes('src="sw.js"'),"Service Worker de produção detectado!");
+}
+
 console.log("OK: 2 unidades, 28 locais, QR legado, banheiros clinica, bloqueios de operacoes reais");
