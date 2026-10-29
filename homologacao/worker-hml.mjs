@@ -71,6 +71,35 @@ export default {
       });
     }
 
+    // D1 HML: verificação somente de leitura do binding e do esquema.
+    // Não lista dados dos chamados nem permite alterações no banco.
+    if (request.method === "GET" && url.pathname === "/hml/db-health") {
+      if (!env?.HML_DB || typeof env.HML_DB.prepare !== "function") {
+        return resposta(request, env, {
+          sucesso: false, ambiente: "homologacao", banco: "indisponivel"
+        }, 503);
+      }
+      try {
+        const result = await env.HML_DB.prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('qr_requests', 'qr_events')"
+        ).all();
+        const names = new Set((result?.results || []).map(row => row.name));
+        const schemaOk = names.has("qr_requests") && names.has("qr_events");
+        return resposta(request, env, {
+          sucesso: schemaOk,
+          ambiente: "homologacao",
+          banco: schemaOk ? "pronto" : "estrutura_incompleta",
+          tabelas_necessarias: 2,
+          tabelas_presentes: ["qr_requests", "qr_events"].filter(t => names.has(t)).length
+        }, schemaOk ? 200 : 503);
+      } catch {
+        // Não expor SQL, erros internos ou dados do ambiente.
+        return resposta(request, env, {
+          sucesso: false, ambiente: "homologacao", banco: "falha_de_consulta"
+        }, 503);
+      }
+    }
+
     if (request.method === "GET" && url.pathname === "/catalogo") {
       return resposta(request, env, {
         sucesso: true,
