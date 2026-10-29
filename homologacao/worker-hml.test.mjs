@@ -74,4 +74,21 @@ for (const [route,required] of [
   assert.ok(!html.includes('src="sw.js"'),"Service Worker de produção detectado!");
 }
 
+
+// D1: leitura de saúde falha de forma segura sem binding e confirma esquema.
+const noDb = await worker.fetch(new Request("https://cliged-hml.example/hml/db-health"),{});
+assert.equal(noDb.status,503);
+assert.equal((await noDb.json()).banco,"indisponivel");
+const mockDb = {prepare(sql) {
+ assert.match(sql,/sqlite_master/);
+ return {async all(){return {results:[{name:"qr_requests"},{name:"qr_events"}]}}};
+}};
+const dbOk = await worker.fetch(new Request("https://cliged-hml.example/hml/db-health"),{HML_DB:mockDb});
+assert.equal(dbOk.status,200);
+assert.equal((await dbOk.json()).tabelas_presentes,2);
+const missing = await worker.fetch(new Request("https://cliged-hml.example/hml/db-health"),{
+ HML_DB:{prepare(){return {async all(){return {results:[{name:"qr_requests"}]}}}}}
+});
+assert.equal(missing.status,503);
+
 console.log("OK: 2 unidades, 28 locais, QR legado, banheiros clinica, bloqueios de operacoes reais");
