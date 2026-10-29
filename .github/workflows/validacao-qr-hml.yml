@@ -23,3 +23,5 @@ jobs:
         run: node --test homologacao/resolver-unidades.test.mjs
       - name: Valida endpoints HML sem TomTicket
         run: node --test homologacao/worker-hml.test.mjs
+      - name: Valida nucleo operacional isolado
+        run: node --test homologacao/operacao-core.test.mjs
