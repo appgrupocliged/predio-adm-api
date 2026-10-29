@@ -6,6 +6,7 @@ import { resolverLocal } from "./resolver-unidades.mjs";
 import { htmlPainel } from "./painel-hml.mjs";
 import { htmlSolicitante } from "./solicitante-original-hml.mjs";
 import { htmlColaboradora } from "./colaboradora-original-hml.mjs";
+import { reservarSimulacao } from "./reserva-hml.mjs";
 
 const endpointsBloqueados = new Set(["/solicitacao", "/concluir", "/status", "/push/subscribe", "/push/test", "/debug/atendentes"]);
 
@@ -130,6 +131,10 @@ export default {
       } catch (error) {
         return resposta(request, env, { sucesso: false, mensagem: error.message }, 400);
       }
+    }
+
+    if (url.pathname === "/hml/reservar") {
+      return reservarSimulacao(request, env);
     }
 
     // Bloqueio proposital: nunca ativar endpoints reais antes de autenticação,
