@@ -7,6 +7,7 @@ import { htmlPainel } from "./painel-hml.mjs";
 import { htmlSolicitante } from "./solicitante-original-hml.mjs";
 import { htmlColaboradora } from "./colaboradora-original-hml.mjs";
 import { reservarSimulacao } from "./reserva-hml.mjs";
+import { auditarHml } from "./auditoria-hml.mjs";
 
 const endpointsBloqueados = new Set(["/solicitacao", "/concluir", "/status", "/push/subscribe", "/push/test", "/debug/atendentes"]);
 
@@ -132,6 +133,8 @@ export default {
         return resposta(request, env, { sucesso: false, mensagem: error.message }, 400);
       }
     }
+
+    if (url.pathname === "/hml/auditar") return auditarHml(request, env);
 
     if (url.pathname === "/hml/reservar") {
       return reservarSimulacao(request, env);
