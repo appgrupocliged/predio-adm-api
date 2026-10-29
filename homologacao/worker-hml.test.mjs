@@ -41,4 +41,22 @@ assert.match(htmlPainel,/VALIDAR IDENTIFICAÇÃO/);
 assert.match(htmlPainel,/fetch\("catalogo"\)/);
 assert.match(htmlPainel,/fetch\("validar"/);
 
+// A API deve validar todos os pontos, inclusive códigos iguais em unidades distintas.
+const catalogo = (await chamada("/catalogo")).body.unidades;
+let totalPontos = 0;
+for (const unidade of catalogo) {
+  for (const ponto of unidade.locais) {
+    const resposta = await chamada("/validar", "POST", {
+      unit_code: unidade.codigo,
+      local_code: ponto.codigo
+    });
+    assert.equal(resposta.status, 200);
+    assert.equal(resposta.body.local.location_id, unidade.codigo + ":" + ponto.codigo);
+    assert.equal(resposta.body.local.local_name, ponto.nome);
+    totalPontos++;
+  }
+}
+assert.equal(totalPontos, 28);
+assert.equal((await chamada("/validar", "POST", { local_code: "B.01" })).body.local.location_id, "ADM-MCE:B.01");
+
 console.log("OK: 2 unidades, 28 locais, QR legado, banheiros clinica, bloqueios de operacoes reais");
