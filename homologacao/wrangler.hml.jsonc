@@ -6,5 +6,13 @@
   "workers_dev": true,
   "vars": {
     "CLIGED_AMBIENTE": "homologacao"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "HML_DB",
+      "database_name": "cliged-qr-hml-db",
+      "database_id": "82da58c7-9846-4d71-86f9-c68dfc1b889a",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
