@@ -8,7 +8,7 @@ import {reservar} from "./persistencia-d1.mjs";
 function json(data,status=200){
   return new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","X-Robots-Tag":"noindex, nofollow"}});
 }
-async function tokenValido(recebido,esperado){
+export async function tokenValido(recebido,esperado){
   if(typeof esperado!=="string" || esperado.length<32 || typeof recebido!=="string")return false;
   const encoder=new TextEncoder();
   const [a,b]=await Promise.all([crypto.subtle.digest("SHA-256",encoder.encode(recebido)),crypto.subtle.digest("SHA-256",encoder.encode(esperado))]);
