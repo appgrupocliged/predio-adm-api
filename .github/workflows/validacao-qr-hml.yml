@@ -25,3 +25,6 @@ jobs:
         run: node --test homologacao/worker-hml.test.mjs
       - name: Valida nucleo operacional isolado
         run: node --test homologacao/operacao-core.test.mjs
+
+      - name: Valida persistencia idempotente simulada
+        run: node --test homologacao/persistencia-d1.test.mjs
