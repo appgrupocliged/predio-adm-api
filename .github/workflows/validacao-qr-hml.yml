@@ -34,3 +34,6 @@ jobs:
 
       - name: Valida reserva HML protegida no D1 simulado
         run: node --test homologacao/reserva-hml.test.mjs
+
+      - name: Valida auditoria autenticada HML
+        run: node --test homologacao/auditoria-hml.test.mjs
