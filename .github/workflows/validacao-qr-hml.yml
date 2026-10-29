@@ -28,3 +28,6 @@ jobs:
 
       - name: Valida persistencia idempotente simulada
         run: node --test homologacao/persistencia-d1.test.mjs
+
+      - name: Valida planos simulados TomTicket e Google Chat
+        run: node --test homologacao/planos-integracao-hml.test.mjs
