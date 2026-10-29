@@ -31,3 +31,6 @@ jobs:
 
       - name: Valida planos simulados TomTicket e Google Chat
         run: node --test homologacao/planos-integracao-hml.test.mjs
+
+      - name: Valida reserva HML protegida no D1 simulado
+        run: node --test homologacao/reserva-hml.test.mjs
