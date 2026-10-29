@@ -1,0 +1,18 @@
+import assert from "node:assert/strict";
+import worker from "./worker-hml.mjs";
+const secret="segredo-exclusivo-hml-teste-1234567890123456";
+const key="d4e59717-7f7e-4660-a014-11d2ebf615ae";
+const db={prepare(sql){assert.match(sql,/SELECT location_id/);return {bind(k){assert.equal(k,key);return {async first(){return {location_id:"CLI-MCE:B.09",state:"RESERVADA",created_at:"2026-10-29 19:00:00",updated_at:"2026-10-29 19:00:00"}}}}}}};
+const call=(env,auth,body={idempotency_key:key})=>worker.fetch(new Request("https://hml.example/hml/auditar",{method:"POST",headers:{"Content-Type":"application/json",...(auth?{Authorization:"Bearer "+auth}:{})},body:JSON.stringify(body)}),env);
+assert.equal((await call({})).status,503);
+assert.equal((await call({HML_DB:db,HML_WRITE_TOKEN:secret})).status,401);
+assert.equal((await call({HML_DB:db,HML_WRITE_TOKEN:secret},"errado")).status,401);
+const r=await call({HML_DB:db,HML_WRITE_TOKEN:secret},secret);
+assert.equal(r.status,200);
+const j=await r.json();
+assert.equal(j.encontrado,true);
+assert.equal(j.location_id,"CLI-MCE:B.09");
+assert.equal(j.estado,"RESERVADA");
+assert.equal(Object.hasOwn(j,"items_json"),false);
+assert.equal((await call({HML_DB:db,HML_WRITE_TOKEN:secret},secret,{idempotency_key:"invalido"})).status,400);
+console.log("OK: auditoria D1 autenticada, sem segredo e sem dados de serviços");
