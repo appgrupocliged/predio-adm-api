@@ -11,6 +11,8 @@ import { auditarHml } from "./auditoria-hml.mjs";
 import { linksConclusao } from './links-conclusao-hml.mjs';
 import { htmlAtendimentoLink } from './atendimento-link-hml.mjs';
 import { simularCompleto } from './simulacao-completa-hml.mjs';
+import { sessaoTeste } from './sessao-teste-hml.mjs';
+import { htmlSolicitanteLink } from './solicitante-link-hml.mjs';
 
 const endpointsBloqueados = new Set(["/solicitacao", "/concluir", "/status", "/push/subscribe", "/push/test", "/debug/atendentes"]);
 
@@ -35,6 +37,10 @@ function resposta(request, env, dados, status = 200) {
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
+    if (['/hml/testes/emitir','/hml/testes/sessao','/hml/testes/solicitar'].includes(url.pathname)) return sessaoTeste(request,env);
+    if (url.pathname === '/hml/solicitante' && request.method === 'GET') {
+      return new Response(htmlSolicitanteLink, {headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow','Content-Security-Policy':"default-src 'none'; img-src https://appgrupocliged.github.io; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'}});
+    }
     if (url.pathname === '/hml/simular') return simularCompleto(request,env);
     if (url.pathname === '/hml/atendimento' && request.method === 'GET') {
       return new Response(htmlAtendimentoLink, {headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow','Content-Security-Policy':"default-src 'none'; img-src https://appgrupocliged.github.io; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'}});
