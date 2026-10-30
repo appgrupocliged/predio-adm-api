@@ -38,6 +38,12 @@ export async function sessaoTeste(request,env={}){
    const count=await env.HML_DB.prepare('SELECT COUNT(*) AS n FROM hml_test_requests WHERE session_hash=?').bind(digest).first();
    return json({sucesso:true,restantes:Math.max(0,session.max_requests-count.n),expira_em:new Date(session.expires_at*1000).toISOString(),local_fixo:localFixo});
   }
+  if(path==='/hml/testes/status'){
+   if(typeof b.idempotency_key!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(b.idempotency_key))return json({sucesso:false,mensagem:'Identificador inválido.'},400);
+   const row=await env.HML_DB.prepare('SELECT r.location_id,r.state FROM hml_test_requests t JOIN qr_requests r ON r.idempotency_key=t.idempotency_key WHERE t.session_hash=? AND t.idempotency_key=?').bind(digest,b.idempotency_key.toLowerCase()).first();
+   if(!row)return json({sucesso:false,mensagem:'Solicitação não encontrada.'},404);
+   return json({sucesso:true,modo:'SIMULACAO',location_id:row.location_id,estado:row.state});
+  }
   if(path!=='/hml/testes/solicitar')return json({sucesso:false},404);
   let p;try{p=await prepararSolicitacao(catalogo,b.pedido);}catch{return json({sucesso:false,mensagem:'Unidade, local ou serviços inválidos.'},400);}
   if(localFixo&&(p.unit_code!==localFixo.unit_code||p.local_code!==localFixo.local_code))return json({sucesso:false,mensagem:'Este QR permite solicitar somente para o local identificado.'},403);
@@ -47,6 +53,7 @@ export async function sessaoTeste(request,env={}){
   const grant=await env.HML_DB.prepare('SELECT session_hash,fingerprint FROM hml_test_requests WHERE idempotency_key=?').bind(p.idempotency_key).first();
   if(!grant)return json({sucesso:false,mensagem:'Limite de teste atingido ou chave indisponível.'},429);
   if(grant.session_hash!==digest||grant.fingerprint!==p.fingerprint)return json({sucesso:false,mensagem:'Chave já usada com outros dados.'},409);
-  return simularCompleto(new Request(BASE+'/hml/simular',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+env.HML_WRITE_TOKEN},body:JSON.stringify(b.pedido)}),env);
+  // O solicitante recebe apenas confirmação; link é emitido pelo acesso administrativo.
+  return simularCompleto(new Request(BASE+'/hml/simular',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+env.HML_WRITE_TOKEN},body:JSON.stringify(b.pedido)}),env,{emitirLink:false});
  }catch{return json({sucesso:false,mensagem:'Não foi possível gravar. Tente reenviar a mesma solicitação.'},503);}
 }
