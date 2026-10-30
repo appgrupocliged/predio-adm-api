@@ -37,3 +37,6 @@ jobs:
 
       - name: Valida auditoria autenticada HML
         run: node --test homologacao/auditoria-hml.test.mjs
+
+      - name: Valida trilha atomica e conclusao por link sem email
+        run: node --test homologacao/eventos-d1.test.mjs homologacao/links-conclusao-hml.test.mjs homologacao/simulacao-completa-hml.test.mjs
