@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+const db=new DatabaseSync(':memory:');
+db.exec(readFileSync(new URL('./migrations/001_qr_requests.sql',import.meta.url),'utf8'));
+const migration=readFileSync(new URL('./migrations/002_qr_events_automaticos.sql',import.meta.url),'utf8');
+db.exec(migration);db.exec(migration);
+const insert=db.prepare('INSERT OR IGNORE INTO qr_requests (idempotency_key,fingerprint,unit_code,local_code,location_id,items_json) VALUES (?,?,?,?,?,?)');
+insert.run('test-key','a'.repeat(64),'ADM-MCE','B.01','ADM-MCE:B.01','["limpeza"]');
+insert.run('test-key','a'.repeat(64),'ADM-MCE','B.01','ADM-MCE:B.01','["limpeza"]');
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM qr_events').get().n,1);
+const update=db.prepare('UPDATE qr_requests SET state=?, actor=? WHERE idempotency_key=? AND state=?');
+assert.equal(update.run('ENVIO_INICIADO','HML-ACTOR','test-key','RESERVADA').changes,1);
+assert.equal(update.run('ENVIO_INICIADO','HML-ACTOR','test-key','RESERVADA').changes,0);
+update.run('ENVIO_INICIADO','HML-ACTOR','test-key','ENVIO_INICIADO');
+const events=db.prepare('SELECT event,actor FROM qr_events ORDER BY id').all();
+assert.deepEqual(events.map(x=>x.event),['RESERVA_CRIADA','ESTADO:RESERVADA->ENVIO_INICIADO']);
+assert.equal(events[1].actor,'HML-ACTOR');
+// Falha deliberada de auditoria deve impedir o avanço do estado.
+db.exec("CREATE TRIGGER fail_audit BEFORE INSERT ON qr_events WHEN NEW.event LIKE '%ABERTA' BEGIN SELECT RAISE(ABORT,'audit failure'); END;");
+assert.throws(()=>update.run('ABERTA','HML-ACTOR','test-key','ENVIO_INICIADO'));
+assert.equal(db.prepare('SELECT state FROM qr_requests').get().state,'ENVIO_INICIADO');
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM qr_events').get().n,2);
+db.close();
+console.log('OK: trilha atômica, migração repetível, reenvio sem evento duplicado, CAS e rollback por falha de auditoria');

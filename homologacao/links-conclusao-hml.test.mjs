@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+import {linksConclusao} from './links-conclusao-hml.mjs';
+import {htmlAtendimentoLink} from './atendimento-link-hml.mjs';
+const sqlite=new DatabaseSync(':memory:');
+for(const file of ['001_qr_requests.sql','002_qr_events_automaticos.sql','003_links_conclusao.sql'])sqlite.exec(readFileSync(new URL('./migrations/'+file,import.meta.url),'utf8'));
+const db={prepare(sql){let args=[];return {bind(...a){args=a;return this},async first(){return sqlite.prepare(sql).get(...args)??null},async run(){return {meta:sqlite.prepare(sql).run(...args)}}}}};
+const secret='x'.repeat(48),env={CLIGED_AMBIENTE:'homologacao',HML_DB:db,HML_WRITE_TOKEN:secret};
+async function call(path,body,admin=false){const r=await linksConclusao(new Request('https://hml.test/hml/links/'+path,{method:'POST',headers:{'Content-Type':'application/json',...(admin?{Authorization:'Bearer '+secret}:{})},body:JSON.stringify(body)}),env);return {status:r.status,...await r.json()};}
+const key='00000000-0000-4000-8000-000000000001';
+sqlite.prepare("INSERT INTO qr_requests(idempotency_key,fingerprint,unit_code,local_code,location_id,items_json,state,ticket_id) VALUES(?,?,?,?,?,?,'ABERTA','SIM-TEST')").run(key,'a'.repeat(64),'CLI-MCE','B.01','CLI-MCE:B.01','["limpeza"]');
+assert.equal((await call('emitir',{idempotency_key:key})).status,401);
+const issued=await call('emitir',{idempotency_key:key},true);assert.equal(issued.status,201);
+const token=new URLSearchParams(new URL(issued.url).hash.slice(1)).get('chave');
+assert.equal(sqlite.prepare('SELECT token_hash FROM hml_completion_links').get().token_hash.includes(token),false);
+assert.equal((await call('consultar',{token})).location_id,'CLI-MCE:B.01');
+assert.equal((await call('consultar',{token:'A'.repeat(43)})).status,404);
+assert.equal((await call('concluir',{token,nome:'Teste',unit_code:'ADM-MCE'})).status,400);
+assert.equal((await call('concluir',{token,nome:'A'})).status,400);
+const results=await Promise.all(Array.from({length:10},()=>call('concluir',{token,nome:'Colaboradora Teste'})));
+assert.equal(results.filter(r=>r.status===200).length,1);assert.equal(results.filter(r=>r.status===409).length,9);
+assert.equal(sqlite.prepare('SELECT actor FROM qr_requests').get().actor,'NOME_INFORMADO:Colaboradora Teste');
+assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM qr_events WHERE event='ESTADO:ABERTA->CONCLUIDA'").get().n,1);
+assert.equal((await call('emitir',{idempotency_key:key},true)).status,409);
+sqlite.exec('UPDATE hml_completion_links SET expires_at=0');assert.equal((await call('consultar',{token})).status,404);
+assert.ok(htmlAtendimentoLink.includes('/hml/links/concluir'));assert.ok(!htmlAtendimentoLink.includes('HML_WRITE_TOKEN'));
+sqlite.close();console.log('OK: link sem e-mail, hash, expiração, emissão protegida, unidade do banco e conclusão única');

@@ -7,7 +7,9 @@ export async function reservar(db, pedido) {
   const insert = await db.prepare(
     "INSERT OR IGNORE INTO qr_requests (idempotency_key, fingerprint, unit_code, local_code, location_id, items_json) VALUES (?, ?, ?, ?, ?, ?)"
   ).bind(chave,pedido.fingerprint,pedido.unit_code,pedido.local_code,pedido.location_id,JSON.stringify(pedido.servicos)).run();
-  const created = insert?.meta?.changes === 1;
+  // D1 inclui efeitos dos gatilhos na contagem. Zero significa reenvio;
+  // uma reserva nova pode alterar também a tabela de eventos.
+  const created = insert?.meta?.changes > 0;
   const row=await db.prepare(
     "SELECT idempotency_key, fingerprint, location_id, unit_code, local_code, state, ticket_id FROM qr_requests WHERE idempotency_key = ?"
   ).bind(chave).first();
@@ -31,7 +33,7 @@ export async function transicionar(db,chave,estadoAtual,novoEstado,{ticketId=nul
   const r=await db.prepare(
     "UPDATE qr_requests SET state = ?, ticket_id = COALESCE(?,ticket_id), actor = COALESCE(?,actor), updated_at=CURRENT_TIMESTAMP WHERE idempotency_key = ? AND state = ?"
   ).bind(novoEstado,ticketId,actor,chave,estadoAtual).run();
-  return r.meta?.changes === 1;
+  return r.meta?.changes > 0;
 }
 // ENVIO_INCERTO e CONCLUSAO_INCERTA exigem reconciliação antes de retry.
 // Não transicionar de volta a RESERVADA: isso poderia duplicar ticket real.
