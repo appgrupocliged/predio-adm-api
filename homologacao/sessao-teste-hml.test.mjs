@@ -5,7 +5,7 @@ import {Script} from 'node:vm';
 import {sessaoTeste} from './sessao-teste-hml.mjs';
 import {htmlSolicitanteLink} from './solicitante-link-hml.mjs';
 const sqlite=new DatabaseSync(':memory:');
-for(const f of ['001_qr_requests.sql','002_qr_events_automaticos.sql','003_links_conclusao.sql','004_sessoes_teste.sql'])sqlite.exec(readFileSync(new URL('./migrations/'+f,import.meta.url),'utf8'));
+for(const f of ['001_qr_requests.sql','002_qr_events_automaticos.sql','003_links_conclusao.sql','004_sessoes_teste.sql','005_qr_local_fixo.sql'])sqlite.exec(readFileSync(new URL('./migrations/'+f,import.meta.url),'utf8'));
 const db={prepare(sql){let a=[];return {bind(...p){a=p;return this},async first(){return sqlite.prepare(sql).get(...a)??null},async run(){return {meta:sqlite.prepare(sql).run(...a)}}}}};
 const secret='s'.repeat(48),env={CLIGED_AMBIENTE:'homologacao',HML_DB:db,HML_WRITE_TOKEN:secret};
 async function call(path,b={},admin=false){const r=await sessaoTeste(new Request('https://hml.test/hml/testes/'+path,{method:'POST',headers:admin?{Authorization:'Bearer '+secret}:{},body:JSON.stringify(b)}),env);return {http:r.status,...await r.json()};}
@@ -23,6 +23,11 @@ assert.equal((await call('solicitar',{token,pedido:{...pedido,idempotency_key:'0
 assert.equal((await call('solicitar',{token,pedido:{...pedido,unit_code:'CLI-MCE'}})).http,409);
 const second=await call('emitir',{},true),token2=new URLSearchParams(new URL(second.url).hash.slice(1)).get('sessao');
 assert.equal((await call('solicitar',{token:token2,pedido})).http,409);
+const fixed=await call('emitir',{unit_code:'CLI-MCE',local_code:'B.04'},true);
+const fixedToken=new URLSearchParams(new URL(fixed.url).hash.slice(1)).get('sessao');
+assert.equal((await call('sessao',{token:fixedToken})).local_fixo.local_code,'B.04');
+assert.equal((await call('solicitar',{token:fixedToken,pedido:{...pedido,idempotency_key:'00000000-0000-4000-8000-000000000010'}})).http,403);
+assert.equal((await call('solicitar',{token:fixedToken,pedido:{...pedido,idempotency_key:'00000000-0000-4000-8000-000000000010',unit_code:'CLI-MCE',local_code:'B.04'}})).http,201);
 sqlite.exec('UPDATE hml_test_sessions SET expires_at=0');assert.equal((await call('solicitar',{token,pedido})).http,401);
 assert.ok(!htmlSolicitanteLink.includes('HML_WRITE_TOKEN'));assert.ok(htmlSolicitanteLink.includes('/hml/testes/solicitar'));
 new Script(htmlSolicitanteLink.match(/<script>([\s\S]*?)<\/script>/)[1]);
