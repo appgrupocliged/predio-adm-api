@@ -40,3 +40,6 @@ jobs:
 
       - name: Valida trilha atomica e conclusao por link sem email
         run: node --test homologacao/eventos-d1.test.mjs homologacao/links-conclusao-hml.test.mjs homologacao/simulacao-completa-hml.test.mjs
+
+      - name: Valida acesso temporario ao formulario de teste
+        run: node --test homologacao/sessao-teste-hml.test.mjs
