@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
 import {pilotoExternoHml} from './piloto-externo-hml.mjs';
 
 let calls=0;
@@ -17,5 +19,15 @@ try{
  const disabled=await pilotoExternoHml(req(),env);
  assert.equal(disabled.status,423);
  assert.equal(calls,0);
+ const db=new DatabaseSync(':memory:');
+ try{
+  db.exec('CREATE TABLE qr_requests(idempotency_key TEXT PRIMARY KEY)');
+  db.exec(readFileSync(new URL('./migrations/006_hml_external_pilot.sql',import.meta.url),'utf8'));
+  db.prepare("INSERT INTO qr_requests(idempotency_key) VALUES (?)").run('A');
+  db.prepare("INSERT INTO qr_requests(idempotency_key) VALUES (?)").run('B');
+  db.prepare("INSERT INTO hml_external_pilots(request_key,status) VALUES (?,'RESERVADO')").run('A');
+  assert.throws(()=>db.prepare("INSERT INTO hml_external_pilots(request_key,status) VALUES (?,'RESERVADO')").run('B'));
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM hml_external_pilots').get().n,1);
+ }finally{db.close();}
  console.log('PASS: piloto externo bloqueado sem habilitação e credenciais próprias');
 }finally{globalThis.fetch=oldFetch;}
