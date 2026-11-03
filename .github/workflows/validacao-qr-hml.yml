@@ -47,5 +47,8 @@ jobs:
       - name: Valida contratos TomTicket e Chat sem chamadas externas
         run: node --test homologacao/integracao-preflight-hml.test.mjs
 
+      - name: Valida bloqueio do piloto real de homologação
+        run: node --test homologacao/piloto-externo-hml.test.mjs
+
       - name: Valida empacotamento Cloudflare HML sem publicar
         run: npx --yes wrangler@4.47.0 deploy --dry-run --config homologacao/wrangler.hml.jsonc
