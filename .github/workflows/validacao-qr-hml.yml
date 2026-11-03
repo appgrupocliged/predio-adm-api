@@ -53,5 +53,8 @@ jobs:
       - name: Valida encerramento unico de ticket real de TESTE desligado por padrao
         run: node --test homologacao/encerramento-piloto-hml.test.mjs
 
+      - name: Valida formulario da colaboradora com envio real bloqueado por padrao
+        run: node --test homologacao/conclusao-real-clinica-hml.test.mjs
+
       - name: Valida empacotamento Cloudflare HML sem publicar
         run: npx --yes wrangler@4.47.0 deploy --dry-run --config homologacao/wrangler.hml.jsonc
