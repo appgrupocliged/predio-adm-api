@@ -2,7 +2,7 @@
 // Operação administrativa, não utilizável pelo formulário público da colaboradora.
 // Não realiza reenvio automático em falhas ambíguas.
 import {tokenValido} from './reserva-hml.mjs';
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const respond=(data,http=200)=>new Response(JSON.stringify(data),{status:http,headers:{
  'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow'
 }});
