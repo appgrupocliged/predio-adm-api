@@ -122,3 +122,21 @@ const gestorSemDb=await worker.fetch(new Request("https://cliged-hml.example/hml
  method:"POST",headers:{"Authorization":"Bearer "+"a".repeat(48)},body:"{}"
 }),{});
 assert.equal(gestorSemDb.status,503);
+
+
+const guestToken="S".repeat(43);
+const adminSecret="Q".repeat(48);
+const hmlEnv={CLIGED_AMBIENTE:"homologacao",HML_WRITE_TOKEN:adminSecret,HML_DB:{prepare(){throw Error("Render QR não deve tocar D1");}}};
+const qrResponse=await worker.fetch(new Request("https://cliged-hml.example/hml/gestao/qr",{
+ method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+adminSecret},
+ body:JSON.stringify({url:"https://cliged-qr-hml-isolado.appgrupocliged.workers.dev/hml/solicitante?unidade=CLI-MCE&local=B.05#sessao="+guestToken})
+}),hmlEnv);
+assert.equal(qrResponse.status,200);
+const qrBody=await qrResponse.json();
+assert.equal(qrBody.sucesso,true);
+assert.match(qrBody.svg,/<svg/);
+const invalidQr=await worker.fetch(new Request("https://cliged-hml.example/hml/gestao/qr",{
+ method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+adminSecret},
+ body:JSON.stringify({url:"https://predio-adm-api.appgrupocliged.workers.dev/solicitacao?local=B.01"})
+}),hmlEnv);
+assert.equal(invalidQr.status,400);
