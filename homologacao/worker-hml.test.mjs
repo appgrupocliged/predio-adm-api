@@ -107,3 +107,18 @@ const autotesteNoDb=await worker.fetch(new Request("https://cliged-hml.example/h
   method:"POST",headers:{"Authorization":"Bearer "+"a".repeat(48),"Content-Type":"application/json"},body:"{}"
 }),{});
 assert.equal(autotesteNoDb.status,503);
+
+
+const gestaoPage=await worker.fetch(new Request("https://cliged-hml.example/hml/gestao"),{});
+assert.equal(gestaoPage.status,200);
+const gestaoHtml=await gestaoPage.text();
+assert.match(gestaoHtml,/Testar QR Codes e chamados/);
+assert.ok(!gestaoHtml.includes("predio-adm-api.appgrupocliged.workers.dev"));
+assert.ok(!gestaoHtml.includes("HML_WRITE_TOKEN="));
+const jsGestao=gestaoHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+assert.ok(jsGestao);
+assert.doesNotThrow(()=>new Script(jsGestao),"JavaScript da gestao deve compilar.");
+const gestorSemDb=await worker.fetch(new Request("https://cliged-hml.example/hml/gestao/listar",{
+ method:"POST",headers:{"Authorization":"Bearer "+"a".repeat(48)},body:"{}"
+}),{});
+assert.equal(gestorSemDb.status,503);
