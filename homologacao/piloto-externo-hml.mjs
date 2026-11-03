@@ -40,7 +40,7 @@ async function callTomTicket(env,route,body,isForm=false) {
  const headers={Authorization:'Bearer '+env.HML_TOMTICKET_TOKEN};
  if(!isForm)headers['Content-Type']='application/x-www-form-urlencoded';
  const response=await fetch('https://api.tomticket.com/v2.0/ticket/'+route,{
-  method:'POST',headers,body,redirect:'error',signal:AbortSignal.timeout(12000)
+  method:'POST',headers,body,redirect:'manual',signal:AbortSignal.timeout(12000)
  });
  return parseTomTicket(response);
 }
@@ -148,7 +148,7 @@ export async function pilotoExternoHml(request,env={}){
          '\nUnidade: '+pedido.unit_name+'\nLocal: '+pedido.local_code+' — '+pedido.local_name+
          '\nServiços: '+pedido.servicos.join(', ')+
          '\nEste é um teste controlado; não atender nem encerrar como produção.'}),
-      redirect:'error',signal:AbortSignal.timeout(12000)
+      redirect:'manual',signal:AbortSignal.timeout(12000)
     });
     if(!chat.ok)throw Error('not-confirmed');
   }catch{
