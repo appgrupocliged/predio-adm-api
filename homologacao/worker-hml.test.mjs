@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {Script} from "node:vm";
 import worker from "./worker-hml.mjs";
 
 async function chamada(path, method="GET", body) {
@@ -98,6 +99,9 @@ const autotestePage=await worker.fetch(new Request("https://cliged-hml.example/h
 assert.equal(autotestePage.status,200);
 const autotesteHtml=await autotestePage.text();
 assert.match(autotesteHtml,/Autoteste do fluxo QR Code/);
+const inlineScript = autotesteHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+assert.ok(inlineScript,"Tela de autoteste sem JavaScript.");
+assert.doesNotThrow(()=>new Script(inlineScript),"JavaScript do autoteste deve compilar no navegador.");
 assert.ok(!autotesteHtml.includes("predio-adm-api.appgrupocliged.workers.dev"));
 const autotesteNoDb=await worker.fetch(new Request("https://cliged-hml.example/hml/autoteste",{
   method:"POST",headers:{"Authorization":"Bearer "+"a".repeat(48),"Content-Type":"application/json"},body:"{}"
