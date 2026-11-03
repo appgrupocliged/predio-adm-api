@@ -16,6 +16,7 @@ import { autotesteHml } from './autoteste-hml.mjs';
 import { gestaoHml } from './gestao-hml.mjs';
 import { htmlGestao } from './gestao-page-hml.mjs';
 import { preflightIntegracaoHml } from './integracao-preflight-hml.mjs';
+import { pilotoExternoHml } from './piloto-externo-hml.mjs';
 import { htmlSolicitanteLink } from './solicitante-link-hml.mjs';
 
 const endpointsBloqueados = new Set(["/solicitacao", "/concluir", "/status", "/push/subscribe", "/push/test", "/debug/atendentes"]);
@@ -50,6 +51,7 @@ export default {
       }});
     }
     if (url.pathname === '/hml/integracao/preflight') return preflightIntegracaoHml(request,env);
+    if (url.pathname === '/hml/integracao/piloto') return pilotoExternoHml(request,env);
     if (url.pathname.startsWith('/hml/gestao/')) return gestaoHml(request,env);
     if (url.pathname === '/hml/autoteste') return autotesteHml(request,env);
     if (['/hml/testes/emitir','/hml/testes/sessao','/hml/testes/solicitar','/hml/testes/status'].includes(url.pathname)) return sessaoTeste(request,env);
