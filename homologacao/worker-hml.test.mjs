@@ -92,3 +92,14 @@ const missing = await worker.fetch(new Request("https://cliged-hml.example/hml/d
 assert.equal(missing.status,503);
 
 console.log("OK: 2 unidades, 28 locais, QR legado, banheiros clinica, bloqueios de operacoes reais");
+
+
+const autotestePage=await worker.fetch(new Request("https://cliged-hml.example/hml/autoteste"),{});
+assert.equal(autotestePage.status,200);
+const autotesteHtml=await autotestePage.text();
+assert.match(autotesteHtml,/Autoteste do fluxo QR Code/);
+assert.ok(!autotesteHtml.includes("predio-adm-api.appgrupocliged.workers.dev"));
+const autotesteNoDb=await worker.fetch(new Request("https://cliged-hml.example/hml/autoteste",{
+  method:"POST",headers:{"Authorization":"Bearer "+"a".repeat(48),"Content-Type":"application/json"},body:"{}"
+}),{});
+assert.equal(autotesteNoDb.status,503);
