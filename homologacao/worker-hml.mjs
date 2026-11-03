@@ -11,6 +11,7 @@ import { auditarHml } from "./auditoria-hml.mjs";
 import { linksConclusao } from './links-conclusao-hml.mjs';
 import { htmlAtendimentoLink } from './atendimento-link-hml.mjs';
 import { conclusaoRealClinica } from './conclusao-real-clinica-hml.mjs';
+import { htmlAtendimentoReal } from './atendimento-real-page-hml.mjs';
 import { simularCompleto } from './simulacao-completa-hml.mjs';
 import { sessaoTeste } from './sessao-teste-hml.mjs';
 import { autotesteHml } from './autoteste-hml.mjs';
@@ -50,6 +51,14 @@ export default {
         'Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow',
         'X-Content-Type-Options':'nosniff',
         'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+      }});
+    }
+    if (url.pathname === '/hml/atendimento-real' && request.method === 'GET') {
+      return new Response(htmlAtendimentoReal,{headers:{
+       'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
+       'Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex,nofollow',
+       'Content-Security-Policy':"default-src 'none'; img-src https://appgrupocliged.github.io; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+       'X-Content-Type-Options':'nosniff'
       }});
     }
     if (url.pathname.startsWith('/hml/real/links/')) return conclusaoRealClinica(request,env);
