@@ -1,7 +1,7 @@
 // Piloto externo HML: EXECUÇÃO DESLIGADA POR PADRÃO.
 // Nunca importa worker.js nem usa secrets de produção.
 // Sem fechamento real: requer posterior etapa com autenticação da colaboradora.
-// Uma reserva atômica por request_key; estados incertos não têm reenvio automático.
+// Uma única reserva GLOBAL e atômica no D1; estados incertos não têm reenvio automático.
 import {tokenValido} from './reserva-hml.mjs';
 import catalogo from './catalogo-unidades.json' with {type:'json'};
 import {prepararSolicitacao} from './operacao-core.mjs';
@@ -15,7 +15,7 @@ const output=(status,details={})=>({sucesso:status==='NOTIFICADO',modo:'PILOTO_E
 
 function configValida(env) {
   if(env.HML_EXTERNAL_PILOT_ENABLED!=='SIM_UM_CHAMADO')return false;
-  const required=['HML_TOMTICKET_TOKEN','HML_GOOGLE_CHAT_WEBHOOK_URL','HML_PILOT_DEPARTMENT_ID','HML_PILOT_OPERATOR_ID','HML_PILOT_CUSTOMER_ID'];
+  const required=['HML_TOMTICKET_TOKEN','HML_GOOGLE_CHAT_WEBHOOK_URL','HML_PILOT_DEPARTMENT_ID','HML_PILOT_OPERATOR_ID','HML_PILOT_CUSTOMER_ID','HML_PILOT_REQUEST_KEY'];
   if(required.some(key=>typeof env[key]!=='string'||!env[key].trim()))return false;
   const hook=new URL(env.HML_GOOGLE_CHAT_WEBHOOK_URL);
   if(hook.protocol!=='https:'||hook.hostname!=='chat.googleapis.com'||!hook.pathname.startsWith('/v1/spaces/'))
@@ -62,6 +62,9 @@ export async function pilotoExternoHml(request,env={}){
   sucesso:false,status:'DESATIVADO',
   mensagem:'Piloto externo bloqueado. Configure credenciais e habilitação específicas de homologação no Cloudflare.'
  },423);
+ // Além da aprovação administrativa, somente a chave exata previamente autorizada pode ser usada.
+ if(!UUID.test(env.HML_PILOT_REQUEST_KEY)||key!==env.HML_PILOT_REQUEST_KEY.toLowerCase())
+  return json({sucesso:false,mensagem:'Esta solicitação não está autorizada para o piloto único.'},403);
  let row;
  try{
   row=await env.HML_DB.prepare(
@@ -79,12 +82,13 @@ export async function pilotoExternoHml(request,env={}){
   const reservation=await env.HML_DB.prepare(
    "INSERT OR IGNORE INTO hml_external_pilots(request_key,status) VALUES (?,'RESERVADO')"
   ).bind(key).run();
+  // O UNIQUE(pilot_slot) impede simultaneamente até pedidos com chaves distintas.
   if(!(reservation.meta?.changes>0)){
     const previous=await env.HML_DB.prepare(
       'SELECT status,ticket_id FROM hml_external_pilots WHERE request_key=?'
     ).bind(key).first();
-    return json(output(previous?.status??'DESCONHECIDO',{
-      sucesso:false,mensagem:'Piloto já reservado. Não repetir: confira o estado e reconcilie manualmente.',
+    return json(output(previous?.status??'BLOQUEIO_GLOBAL',{
+      sucesso:false,mensagem:'Piloto já reservado ou esgotado globalmente. Não repetir: confira o estado e reconcilie manualmente.',
       ticket_id:previous?.ticket_id??null
     }),409);
   }
