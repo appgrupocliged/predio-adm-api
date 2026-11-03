@@ -44,5 +44,8 @@ jobs:
       - name: Valida acesso temporario ao formulario de teste
         run: node --test homologacao/sessao-teste-hml.test.mjs
 
+      - name: Valida contratos TomTicket e Chat sem chamadas externas
+        run: node --test homologacao/integracao-preflight-hml.test.mjs
+
       - name: Valida empacotamento Cloudflare HML sem publicar
         run: npx --yes wrangler@4.47.0 deploy --dry-run --config homologacao/wrangler.hml.jsonc
