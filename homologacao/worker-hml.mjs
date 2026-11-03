@@ -15,6 +15,7 @@ import { sessaoTeste } from './sessao-teste-hml.mjs';
 import { autotesteHml } from './autoteste-hml.mjs';
 import { gestaoHml } from './gestao-hml.mjs';
 import { htmlGestao } from './gestao-page-hml.mjs';
+import { preflightIntegracaoHml } from './integracao-preflight-hml.mjs';
 import { htmlSolicitanteLink } from './solicitante-link-hml.mjs';
 
 const endpointsBloqueados = new Set(["/solicitacao", "/concluir", "/status", "/push/subscribe", "/push/test", "/debug/atendentes"]);
@@ -48,6 +49,7 @@ export default {
         'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
       }});
     }
+    if (url.pathname === '/hml/integracao/preflight') return preflightIntegracaoHml(request,env);
     if (url.pathname.startsWith('/hml/gestao/')) return gestaoHml(request,env);
     if (url.pathname === '/hml/autoteste') return autotesteHml(request,env);
     if (['/hml/testes/emitir','/hml/testes/sessao','/hml/testes/solicitar','/hml/testes/status'].includes(url.pathname)) return sessaoTeste(request,env);
