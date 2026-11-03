@@ -10,6 +10,7 @@ import { reservarSimulacao } from "./reserva-hml.mjs";
 import { auditarHml } from "./auditoria-hml.mjs";
 import { linksConclusao } from './links-conclusao-hml.mjs';
 import { htmlAtendimentoLink } from './atendimento-link-hml.mjs';
+import { conclusaoRealClinica } from './conclusao-real-clinica-hml.mjs';
 import { simularCompleto } from './simulacao-completa-hml.mjs';
 import { sessaoTeste } from './sessao-teste-hml.mjs';
 import { autotesteHml } from './autoteste-hml.mjs';
@@ -51,6 +52,7 @@ export default {
         'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
       }});
     }
+    if (url.pathname.startsWith('/hml/real/links/')) return conclusaoRealClinica(request,env);
     if (url.pathname === '/hml/integracao/preflight') return preflightIntegracaoHml(request,env);
     if (url.pathname === '/hml/integracao/piloto') return pilotoExternoHml(request,env);
     if (url.pathname === '/hml/integracao/encerrar-piloto') return encerrarPilotoHml(request,env);
