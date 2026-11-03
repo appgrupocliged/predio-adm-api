@@ -116,6 +116,35 @@ export default {
       }
     }
 
+    // Diagnóstico estrutural de HML: valida as migrações 001–005 sem ler dados.
+    if (request.method === "GET" && url.pathname === "/hml/readiness") {
+      if (!env?.HML_DB || typeof env.HML_DB.prepare !== "function") {
+        return resposta(request, env, {sucesso:false, ambiente:"homologacao", estado:"banco_indisponivel"}, 503);
+      }
+      try {
+        const expectedTables = [
+          "qr_requests", "qr_events", "hml_completion_links",
+          "hml_test_sessions", "hml_test_requests", "hml_test_qr_locations"
+        ];
+        const expectedTriggers = ["qr_requests_audit_insert", "qr_requests_audit_state"];
+        const found = await env.HML_DB.prepare(
+          "SELECT type, name FROM sqlite_master WHERE type IN ('table', 'trigger')"
+        ).all();
+        const objects = new Set((found?.results || []).map(v => v.type + ":" + v.name));
+        const tablesOk = expectedTables.filter(name => objects.has("table:" + name)).length;
+        const triggersOk = expectedTriggers.filter(name => objects.has("trigger:" + name)).length;
+        const ready = tablesOk === expectedTables.length && triggersOk === expectedTriggers.length;
+        return resposta(request, env, {
+          sucesso:ready, ambiente:"homologacao",
+          fluxo_simulado:ready ? "estrutura_pronta" : "migracoes_pendentes",
+          tabelas_presentes:tablesOk, tabelas_necessarias:expectedTables.length,
+          gatilhos_presentes:triggersOk, gatilhos_necessarios:expectedTriggers.length
+        }, ready ? 200 : 503);
+      } catch {
+        return resposta(request, env, {sucesso:false, ambiente:"homologacao", estado:"verificacao_indisponivel"}, 503);
+      }
+    }
+
     if (request.method === "GET" && url.pathname === "/catalogo") {
       return resposta(request, env, {
         sucesso: true,
