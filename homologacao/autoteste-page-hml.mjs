@@ -15,7 +15,7 @@ btn.addEventListener('click',async()=>{
   const response=await fetch('/hml/autoteste',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:'{}',cache:'no-store',referrerPolicy:'no-referrer'});
   const body=await response.json();
   status.textContent=response.ok?'Teste completo aprovado':'Teste incompleto';
-  out.textContent='HTTP '+response.status+'\n'+JSON.stringify(body,null,2);
+  out.textContent='HTTP '+response.status+String.fromCharCode(10)+JSON.stringify(body,null,2);
  }catch{status.textContent='Erro de comunicação com o Worker HML.';out.textContent='Sem resultado.';}
  finally{btn.disabled=false;}
 });
