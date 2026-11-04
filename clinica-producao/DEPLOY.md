@@ -36,3 +36,11 @@
 - Faz agregação mensal por local e serviço antes da exclusão dos dados detalhados, em transações D1. Preserva chamados em aberto, com resultado incerto e registros recentes.
 - O TomTicket é o histórico oficial: a retenção local não substitui backup externo, exportação dos dados ou necessidade de atender às políticas internas de privacidade e auditoria.
 - Não habilitar até aceite técnico; acompanhar logs e armazenamento D1. Para reter detalhamento além de 90 dias, não ativar esta política.
+
+## Publicação do Worker — 04/11/2026
+- Worker Cloudflare exclusivo criado: `cliged-qr-clinica`.
+- Banco D1 criado, schema aplicado e sete tabelas de negócio confirmadas: `cliged-qr-clinica-db`.
+- GitHub conectado à branch exclusiva `producao/clinica-macae-v1` e comando de deploy `npx wrangler deploy --config clinica-producao/wrangler.jsonc`.
+- Este commit solicita o primeiro build. **Não significa aceite de publicação**: verificar build e endpoint no Cloudflare antes de liberar chamados.
+- As flags de abertura, conclusão e retenção permanecem **desligadas por padrão**.
+- **Não alterar o Worker ou branch de produção do Prédio ADM**.
