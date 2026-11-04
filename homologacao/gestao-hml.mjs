@@ -12,6 +12,24 @@ export async function gestaoHml(request,env={}){
   if(!auth.startsWith('Bearer ')||!await tokenValido(auth.slice(7),env.HML_WRITE_TOKEN))
     return json({sucesso:false,mensagem:'Não autorizado.'},401);
   const path=new URL(request.url).pathname;
+  if(path==='/hml/gestao/qr-fixos'){
+    const locais=[
+      ['B.01','Recepção consultas · comum 1'],
+      ['B.02','Recepção consultas · comum 2'],
+      ['B.03','Recepção exames · comum'],
+      ['B.04','Recepção exames · acessível'],
+      ['B.05','Sala RPA'],['B.06','2º piso'],
+      ['B.07','Consultório 2'],['B.08','Consultório 4'],
+      ['B.09','Sala exames 2']
+    ];
+    return json({sucesso:true,ambiente:'homologacao',tipo:'QR_PERMANENTE',
+      locais:locais.map(([code,label])=>{
+        const url='https://cliged-qr-hml-isolado.appgrupocliged.workers.dev/hml/clinica/solicitar?unidade=CLI-MCE&local='+code;
+        const qr=qrcode(0,'M');qr.addData(url);qr.make();
+        return {code,label,url,svg:qr.createSvgTag({cellSize:5,margin:5,scalable:true})};
+      })
+    });
+  }
   if(path==='/hml/gestao/qr'){
     try{
       const raw=await request.text();
