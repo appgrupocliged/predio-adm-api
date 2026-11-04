@@ -6,6 +6,7 @@ import {htmlAtendimentoReal} from '../homologacao/atendimento-real-page-hml.mjs'
 import {solicitarClinicaReal} from '../homologacao/abertura-real-clinica-hml.mjs';
 import {conclusaoRealClinica} from '../homologacao/conclusao-real-clinica-hml.mjs';
 import {qrcode} from '../homologacao/vendor/qrcode.js';
+import {limparHistoricoClinica} from './retencao.mjs';
 const json=(o,status=200)=>new Response(JSON.stringify(o),{status,headers:{
  'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',
  'Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex,nofollow'
@@ -53,6 +54,10 @@ button{padding:12px 18px;background:#f1e7a8;border:0;border-radius:8px;font-weig
 })();
 </script></body></html>`;
 export default {
+ async scheduled(event,env,ctx){
+  if(env.CLINIC_RETENTION_ENABLED!=='SIM_90_DIAS')return;
+  ctx.waitUntil(limparHistoricoClinica(env).catch(error=>console.error('Retencao Clinica falhou:',error.message)));
+ },
  async fetch(request,env={}){
   const url=new URL(request.url),path=url.pathname;
   if(!ready(env))return json({sucesso:false,mensagem:'Worker da Clinica nao configurado.'},503);
