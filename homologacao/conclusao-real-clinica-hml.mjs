@@ -76,6 +76,14 @@ export async function conclusaoRealClinica(request,env={}){
  }
  if(!await update(env.HML_DB,row.idempotency_key,'TOMTICKET_INICIADO','TOMTICKET_CONCLUIDO'))
   return reply({sucesso:false,status:'TOMTICKET_INCERTO',mensagem:'Fechamento recebido, registro local incerto.'},503);
+ // TomTicket já confirmou: registrar concluída ANTES de avisar Google Chat.
+ // Falha de Chat não deve manter status falsamente aberto no celular.
+ try{
+  await env.HML_DB.prepare("UPDATE qr_requests SET state='CONCLUIDA',actor=?,updated_at=CURRENT_TIMESTAMP WHERE idempotency_key=? AND state='ABERTA'")
+   .bind(actor,row.idempotency_key).run();
+ }catch{
+  return reply({sucesso:false,status:'TOMTICKET_CONCLUIDO',mensagem:'TomTicket concluiu. Atualização do status local pendente; não repetir.'},503);
+ }
  // O chat é feito depois da confirmação do encerramento real.
  if(!await update(env.HML_DB,row.idempotency_key,'TOMTICKET_CONCLUIDO','CHAT_INICIADO'))
   return reply({sucesso:false,status:'CHAT_INCERTO',mensagem:'Fechamento confirmado, notificação pendente.'},503);
@@ -93,8 +101,7 @@ export async function conclusaoRealClinica(request,env={}){
    mensagem:'TomTicket concluído, mas Chat não confirmado. Não repetir encerramento.'},502);
  }
  await update(env.HML_DB,row.idempotency_key,'CHAT_INICIADO','CHAT_ENVIADO');
- await env.HML_DB.prepare("UPDATE qr_requests SET state='CONCLUIDA',actor=?,updated_at=CURRENT_TIMESTAMP WHERE idempotency_key=? AND state='ABERTA'")
-  .bind(actor,row.idempotency_key).run();
+ // Estado do QR já gravado após conclusão confirmada no TomTicket.
  return reply({sucesso:true,status:'CHAT_ENVIADO',ticket_id:row.ticket_id,
   mensagem:'TomTicket concluído e Google Chat notificado.'});
 }
