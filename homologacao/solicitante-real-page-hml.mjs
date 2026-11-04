@@ -1,72 +1,7 @@
-// Página permanente por local. Não contém token administrativo nem endpoints de produção.
-export const htmlClinicaReal = `<!doctype html><html lang="pt-BR"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
-<title>CLIGED | Solicitar limpeza e reposição</title>
-<style>
-:root{color-scheme:dark;--gold:#dfc68e;--fg:#f6f6f6;--muted:#b8c7d0}
-*{box-sizing:border-box}body{margin:0;background:#111820;color:var(--fg);font:16px/1.5 system-ui,Arial}
-main{max-width:620px;margin:auto;padding:30px 18px 60px}small{color:var(--gold);letter-spacing:.12em;font-weight:700}
-h1{font-size:clamp(25px,5vw,37px);line-height:1.2;margin:9px 0}p{color:var(--muted)}
-.card{background:#1d2a34;border:1px solid #3e5360;padding:23px;border-radius:17px;margin:20px 0}
-h2{font-size:20px}.row{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid #42505a}
-input[type=checkbox]{width:22px;height:22px;accent-color:#dfc68e;flex:none}
-button{border:0;border-radius:10px;background:var(--gold);color:#13202b;font:800 16px system-ui;cursor:pointer;padding:16px 20px;width:100%;margin-top:20px}
-button:disabled{opacity:.45;cursor:wait}
-#msg{white-space:pre-wrap}#result{display:none}
-</style></head><body><main><small>GRUPO CLIGED · CLÍNICA MACAÉ</small>
-<h1>Solicitar limpeza ou reposição</h1><p>O QR Code identifica automaticamente o banheiro.</p>
-<div class="card" id="form">
-<h2 id="local">Identificando local...</h2><p>Selecione o que precisa ser realizado:</p>
-<div id="services"></div><button id="send" disabled>ENVIAR SOLICITAÇÃO</button>
-<p id="msg" role="status" aria-live="polite"></p></div>
-<div class="card" id="result"><h2 id="resultTitle"></h2><p id="resultMessage"></p></div>
-<script>
-(()=>{
-'use strict';
-const params=new URLSearchParams(location.search);
-const unit=params.get('unidade'),local=params.get('local');
-const services=['Papel higiênico','Papel toalha','Sabonete líquido','Troca/retirada de lixo','limpeza'];
-const labels=['Papel higiênico','Papel toalha','Sabonete líquido','Troca ou retirada de lixo','Solicitar limpeza'];
-const box=document.getElementById('services'),message=document.getElementById('msg');
-const button=document.getElementById('send');let pending=null,busy=false;
-const select=[];
-function checked(){button.disabled=busy||!select.some(e=>e.checked);}
-function fail(t){message.textContent=t;button.disabled=true;}
-for(let i=0;i<services.length;i++){
- const row=document.createElement('label');row.className='row';
- const cb=document.createElement('input');cb.type='checkbox';cb.value=services[i];
- const span=document.createElement('span');span.textContent=labels[i];
- row.append(cb,span);box.append(row);select.push(cb);cb.addEventListener('change',checked);
-}
-if(unit!=='CLI-MCE'||!/^B\\.0[1-9]$/.test(local||'')){
- fail('QR Code inválido para a Clínica.');return;
-}
-fetch('/catalogo',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{
- const u=data.unidades.find(x=>x.codigo===unit),p=u?.locais.find(x=>x.codigo===local);
- if(!p)throw Error();
- document.getElementById('local').textContent=local+' — '+p.nome;
- checked();
-}).catch(()=>fail('Não foi possível identificar o banheiro.'));
-button.addEventListener('click',async()=>{
- if(busy||button.disabled)return;
- if(!pending)pending={idempotency_key:crypto.randomUUID(),unit_code:unit,local_code:local,
-  items:select.filter(x=>x.checked).map(x=>x.value)};
- busy=true;checked();message.textContent='Registrando solicitação...';
- try{
-  const response=await fetch('/hml/clinica/solicitar',{
-   method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify(pending),cache:'no-store',referrerPolicy:'no-referrer'});
-  const data=await response.json();
-  if(!response.ok)throw Error(data.mensagem||'Falha no atendimento.');
-  document.getElementById('form').style.display='none';
-  document.getElementById('result').style.display='block';
-  document.getElementById('resultTitle').textContent='Solicitação registrada';
-  document.getElementById('resultMessage').textContent=data.mensagem||'A equipe foi notificada.';
- }catch(e){
-  // Não criar nova chave para retry após resultado incerto.
-  message.textContent=e.message+' Não recarregue ou abra outra solicitação antes de confirmar com a equipe.';
- }finally{busy=false;checked();}
-});
-})();
-</script></main></body></html>`;
+import {htmlSolicitante} from './solicitante-original-hml.mjs';
+// Mantém exatamente o HTML/CSS legado aprovado: status, nova solicitação e identidade CLIGED.
+const script="<script>\n(()=>{\n'use strict';\nconst unit='CLI-MCE',params=new URLSearchParams(location.search),local=(params.get('local')||'').trim();\nconst selected=[...document.querySelectorAll('.options input[type=checkbox]')];\nconst form=document.getElementById('form'),success=document.getElementById('success');\nconst unitEl=document.getElementById('unidade'),localEl=document.getElementById('local');\nconst codeEl=document.getElementById('localCode'),button=document.getElementById('send');\nconst status=document.getElementById('statusValue'),statusDate=document.getElementById('statusDate');\nconst summary=document.getElementById('summary'),newRequest=document.getElementById('newRequest');\nlet name='',pending=null,timer=null,busy=false,ready=false;\nconst key='cliged-clinica-sol-'+unit+':'+local;\nconst note=document.querySelector('.note');if(note)note.textContent='Sua solicitação será registrada para atendimento.';\nconst selectValues=()=>selected.filter(x=>x.checked).map(x=>x.value);\nfunction update(){button.disabled=!ready||busy||!selectValues().length;\n selected.forEach(x=>x.closest('.option').classList.toggle('selected',x.checked));}\nfunction notice(msg){const el=document.getElementById('localCode');el.style.display='block';el.textContent=msg;}\nfunction save(v){try{localStorage.setItem(key,JSON.stringify(v));}catch{}}\nfunction load(){try{return JSON.parse(localStorage.getItem(key)||'null')}catch{return null}}\nfunction stateLabel(s){return s==='CONCLUIDA'?'🟢 Solicitação concluída':s==='ABERTA'?'🟡 Enviada':'🟡 Em processamento';}\nasync function getStatus(){\n if(!pending?.idempotency_key)return;\n try{\n  const r=await fetch('/hml/clinica/status?request_key='+encodeURIComponent(pending.idempotency_key),{cache:'no-store'});\n  const data=await r.json();if(!r.ok)throw Error(data.mensagem||'Status indisponível.');\n  status.textContent=stateLabel(data.estado);\n  status.className='status-value '+(data.estado==='CONCLUIDA'?'status-success':'status-warning');\n  statusDate.textContent='Atualizado: '+new Date().toLocaleTimeString('pt-BR');\n  if(data.estado==='CONCLUIDA'&&timer){clearInterval(timer);timer=null;}\n }catch{status.textContent='Status temporariamente indisponível';status.className='status-value status-error';}\n}\nfunction showSuccess(){\n form.style.display='none';success.style.display='block';\n summary.replaceChildren();\n const p=document.createElement('div');p.textContent='Local: '+local+' — '+name;\n const items=document.createElement('div');items.style.marginTop='12px';items.textContent='Solicitação: '+pending.items.join(', ');\n summary.append(p,items);\n status.textContent='🔄 Consultando status...';statusDate.textContent='';\n getStatus();if(timer)clearInterval(timer);timer=setInterval(getStatus,15000);\n}\nfunction reset(){\n if(timer){clearInterval(timer);timer=null;}\n try{localStorage.removeItem(key)}catch{}\n pending=null;busy=false;form.style.display='block';success.style.display='none';\n selected.forEach(x=>x.checked=false);update();\n}\nnewRequest.addEventListener('click',reset);\nif(!/^B\\.0[1-9]$/.test(local)){notice('QR Code inválido da Clínica.');return;}\nunitEl.replaceChildren();\nconst u=document.createElement('option');u.value=unit;u.textContent='Clínica CLIGED Macaé';unitEl.append(u);\nunitEl.disabled=true;localEl.disabled=true;\nfetch('/catalogo',{cache:'no-store'}).then(r=>r.json()).then(data=>{\n const entry=data.unidades.find(x=>x.codigo===unit)?.locais.find(x=>x.codigo===local);\n if(!entry)throw Error('Local não cadastrado.');\n name=entry.nome;\n localEl.replaceChildren();const op=document.createElement('option');op.value=local;op.textContent=local+' — '+name;\n localEl.append(op);localEl.value=local;codeEl.textContent='📍 Local identificado pelo QR Code: '+local+' — '+name;\n codeEl.style.display='block';ready=true;\n pending=load();\n if(pending?.idempotency_key&&Array.isArray(pending.items)){showSuccess();}\n else{pending=null;update();}\n}).catch(()=>notice('Não foi possível identificar o local. Atualize a página.'));\nselected.forEach(x=>x.addEventListener('change',update));\nbutton.addEventListener('click',async()=>{\n if(busy||!ready||!selectValues().length)return;\n if(!pending)pending={idempotency_key:crypto.randomUUID(),unit_code:unit,local_code:local,items:selectValues()};\n busy=true;update();button.textContent='ENVIANDO...';\n try{\n  const r=await fetch('/hml/clinica/solicitar',{method:'POST',headers:{'Content-Type':'application/json'},\n   body:JSON.stringify(pending),cache:'no-store'});\n  const data=await r.json();\n  if(!r.ok)throw Error(data.mensagem||'Falha na solicitação.');\n  if(!['ABERTA','CONCLUIDA'].includes(data.estado))throw Error('A solicitação aguarda verificação da equipe.');\n  save(pending);showSuccess();\n }catch(e){notice(e.message+' Não faça outro envio sem verificar com a equipe.');}\n finally{busy=false;update();button.textContent='ENVIAR SOLICITAÇÃO';}\n});\n})();\n</script>";
+export const htmlClinicaReal=htmlSolicitante
+ .replace(/<div role="status"[^>]*>[^<]*<\/div>/,'')
+ .replace('Ambiente de testes: nenhuma solicitação será registrada no TomTicket.','Sua solicitação será registrada para atendimento.')
+ .replace(/<script>[\s\S]*?<\/script>/,()=>script);
