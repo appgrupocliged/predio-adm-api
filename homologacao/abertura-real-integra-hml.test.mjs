@@ -11,7 +11,7 @@ const db={prepare(query){let a=[];return {
  async run(){const m=sql.prepare(query).run(...a);return {meta:{changes:Number(m.changes)}}}
 };}};
 const env={
- CLIGED_AMBIENTE:'homologacao',HML_CLINIC_LIVE_ENABLED:'SIM_APROVADO',HML_DB:db,
+ CLIGED_AMBIENTE:'homologacao',HML_CLINIC_LIVE_ENABLED:'SIM_APROVADO',HML_CLINIC_LIVE_ALLOWED_LOCAL:'B.03',HML_DB:db,
  HML_TOMTICKET_TOKEN:'mock',HML_PILOT_CUSTOMER_ID:'clinica@example.test',
  HML_PILOT_DEPARTMENT_ID:'dep',HML_PILOT_OPERATOR_ID:'gleice',
  HML_GOOGLE_CHAT_WEBHOOK_URL:'https://chat.googleapis.com/v1/spaces/demo/messages?key=mock&token=mock'
