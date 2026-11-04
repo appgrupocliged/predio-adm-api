@@ -103,9 +103,13 @@ export async function solicitarClinicaReal(request,env={}){
    if(!(linkSaved.meta?.changes>0))return uncertain(env,key,'LINKANDO','LINK_INCERTO','Link de conclusão já reservado.');
   }catch{return uncertain(env,key,'LINKANDO','LINK_INCERTO','Não foi possível criar o link de conclusão.');}
   let insertedLink;
-  try{insertedLink=await external(env,'reply/customer',new URLSearchParams({
-   ticket_id:ticketId,message:'🔗 CONCLUIR SOLICITAÇÃO:\n\n'+link
-  }).toString());}catch{return uncertain(env,key,'LINKANDO','LINK_INCERTO','Link não confirmado no TomTicket.');}
+  // TomTicket exige multipart/form-data em /v2.0/ticket/reply/customer.
+  // Em caso de resultado incerto, nao repetir o envio automaticamente.
+  const replyForm=new FormData();
+  replyForm.append('ticket_id',ticketId);
+  replyForm.append('message','🔗 CONCLUIR SOLICITAÇÃO:\n\n'+link);
+  try{insertedLink=await external(env,'reply/customer',replyForm,true);}
+  catch{return uncertain(env,key,'LINKANDO','LINK_INCERTO','Link não confirmado no TomTicket.');}
   if(!insertedLink.ok)return uncertain(env,key,'LINKANDO','LINK_INCERTO','Link não confirmado no TomTicket.');
   await change(db,key,'LINKANDO','LINKADO');
   await change(db,key,'LINKADO','CHAT_INICIADO');
