@@ -73,6 +73,23 @@ export default {
       }});
     }
     if (url.pathname === '/hml/clinica/solicitar' && request.method === 'POST') return solicitarClinicaReal(request,env);
+    if (url.pathname === '/hml/clinica/status' && request.method === 'GET') {
+      const key=url.searchParams.get('request_key')||'';
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key))
+       return resposta(request,env,{sucesso:false,mensagem:'Identificador inválido.'},400);
+      try{
+       const registro=await env.HML_DB.prepare(
+        "SELECT state FROM qr_requests WHERE idempotency_key=? AND unit_code='CLI-MCE'"
+       ).bind(key.toLowerCase()).first();
+       if(!registro)return resposta(request,env,{sucesso:false,mensagem:'Solicitação não localizada.'},404);
+       const raw=registro.state;
+       const estado=raw==='CONCLUIDA'?'CONCLUIDA':raw==='ABERTA'?'ABERTA':'PROCESSANDO';
+       return resposta(request,env,{sucesso:true,estado});
+      }catch{
+       return resposta(request,env,{sucesso:false,mensagem:'Consulta indisponível.'},503);
+      }
+    }
+
     if (url.pathname === '/hml/atendimento-real' && request.method === 'GET') {
       return new Response(htmlAtendimentoReal,{headers:{
        'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
