@@ -62,5 +62,8 @@ jobs:
       - name: Valida ciclo real mock com TomTicket Chat e idempotencia
         run: node --test homologacao/abertura-real-integra-hml.test.mjs
 
+      - name: Valida conclusao real mock colaboradora TomTicket Chat
+        run: node --test homologacao/conclusao-real-integra-hml.test.mjs
+
       - name: Valida empacotamento Cloudflare HML sem publicar
         run: npx --yes wrangler@4.47.0 deploy --dry-run --config homologacao/wrangler.hml.jsonc
