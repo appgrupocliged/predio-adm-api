@@ -8,8 +8,12 @@
     "CLIGED_AMBIENTE": "clinica-producao",
     "HML_CLINIC_LIVE_ENABLED": "NAO",
     "HML_CLINIC_REAL_COMPLETION_ENABLED": "NAO",
-    "HML_CLINIC_LIVE_ALLOWED_LOCAL": "B.01"
+    "HML_CLINIC_LIVE_ALLOWED_LOCAL": "B.01",
+    "CLINIC_RETENTION_ENABLED": "NAO",
+    "CLINIC_RETENTION_DAYS": "90",
+    "CLINIC_RETENTION_BATCH_SIZE": "10"
   },
+  "triggers": { "crons": ["0 5 * * 1"] },
   "d1_databases": [{
     "binding": "HML_DB",
     "database_name": "cliged-qr-clinica-db",
