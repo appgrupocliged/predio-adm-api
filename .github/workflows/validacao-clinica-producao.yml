@@ -20,6 +20,8 @@ jobs:
           node-version: '22'
       - name: Validar Worker exclusivo e QR Codes de producao
         run: node --test clinica-producao/worker.test.mjs
+      - name: Validar retencao segura transacional 90 dias
+        run: node --test clinica-producao/retencao.test.mjs
       - name: Validar integracoes reais com mocks sem disparo externo
         run: node --test homologacao/abertura-real-integra-hml.test.mjs homologacao/conclusao-real-integra-hml.test.mjs
       - name: Validar comportamento seguro quando integracao esta desativada
