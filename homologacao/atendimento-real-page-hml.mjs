@@ -7,7 +7,7 @@ history.replaceState(null,'',location.pathname);
 const info=document.getElementById('info'),card=document.getElementById('card'),
  btn=document.getElementById('concluir'),input=document.getElementById('nome');
 const note=card.querySelector('.note');
-note.textContent='A conclusao real so funciona com a liberacao especifica do ambiente da Clinica.';
+note.textContent='Confirme que o serviço foi realizado antes de concluir.';
 input.maxLength=100;
 async function post(path,body){const r=await fetch('/hml/real/links/'+path,{method:'POST',
  headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store',referrerPolicy:'no-referrer'});
@@ -23,7 +23,7 @@ btn.addEventListener('click',async()=>{
  sent=true;btn.disabled=true;info.textContent='Registrando a conclusao. Nao clique novamente.';
  try{const d=await post('concluir',{token,nome});card.style.display='none';
  document.getElementById('success').style.display='block';
- document.getElementById('successMessage').textContent='Chamado '+d.ticket_id+' concluido no TomTicket e notificado no Google Chat.';}
+ document.getElementById('successMessage').textContent='O atendimento foi registrado com sucesso. Nossa equipe recebeu a confirmação.';}
  catch(e){info.textContent='Resultado nao confirmado: '+e.message+' Nao repita o envio. Avise a administracao.';}
 });
 })();
