@@ -5,7 +5,7 @@
 ## Cloudflare
 1. Criar D1 `cliged-qr-clinica-db`, exclusivo da Clínica. Executar `clinica-producao/schema.sql` no console DESTE D1.
 2. Copiar `clinica-producao/wrangler.example.jsonc` para `clinica-producao/wrangler.jsonc`, substituindo `SUBSTITUIR_PELO_ID_REAL_DO_D1_CLINICA` pelo UUID D1 verdadeiro.
-3. Criar Worker separado **`cliged-qr-clinica`**, branch `homologacao/multiunidade-v1` até criação da branch de produção dedicada, com deploy command `npx wrangler deploy --config clinica-producao/wrangler.jsonc`; garantir que a nova configuração não esteja ligada ao Worker do ADM. Alternativamente publicar via CI exclusivo depois da configuração.
+3. Criar Worker separado **`cliged-qr-clinica`**, branch `producao/clinica-macae-v1`, com deploy command `npx wrangler deploy --config clinica-producao/wrangler.jsonc`; garantir que a nova configuração não esteja ligada ao Worker do ADM. Alternativamente publicar via CI exclusivo depois da configuração.
 4. Configurar os secrets **exclusivamente no novo Worker**, nunca repassar no chat:
    - `HML_TOMTICKET_TOKEN` (secret API TomTicket)
    - `HML_GOOGLE_CHAT_WEBHOOK_URL` (secret webhook operacional)
@@ -27,3 +27,12 @@
 - O código compartilha módulos testados, mas o Worker, banco, secrets, domínio e QR Codes são novos.
 - Caso haja falha ambígua, verificar o TomTicket antes de qualquer reenvio.
 - Antes do GO, rotacionar tokens administrativos que tenham sido expostos.
+
+## Retenção automática (pré-instalada, DESLIGADA)
+- A migração `010_retencao_segura.sql` já integra `schema.sql` para bancos novos. Em bancos existentes, executar apenas `010_retencao_segura.sql`.
+- O Worker possui cron `0 5 * * 1` (segunda-feira 05:00 UTC, 02:00 em Macaé) e só executa caso `CLINIC_RETENTION_ENABLED=SIM_90_DIAS`.
+- Configurações: `CLINIC_RETENTION_DAYS=90`, `CLINIC_RETENTION_BATCH_SIZE=10` (máximo 25 registros por execução).
+- Arquiva apenas registros da Clínica com estado `CONCLUIDA`, etapa de abertura `ATIVO` e conclusão notificada no Chat `CHAT_ENVIADO`, cuja última atualização ocorreu há mais de 90 dias.
+- Faz agregação mensal por local e serviço antes da exclusão dos dados detalhados, em transações D1. Preserva chamados em aberto, com resultado incerto e registros recentes.
+- O TomTicket é o histórico oficial: a retenção local não substitui backup externo, exportação dos dados ou necessidade de atender às políticas internas de privacidade e auditoria.
+- Não habilitar até aceite técnico; acompanhar logs e armazenamento D1. Para reter detalhamento além de 90 dias, não ativar esta política.
