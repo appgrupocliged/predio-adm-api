@@ -7,7 +7,7 @@ const reply=(b,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{
  'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',
  'Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex,nofollow'
 }});
-const ready=e=>e.CLIGED_AMBIENTE==='homologacao'&&e.HML_CLINIC_LIVE_ENABLED==='SIM_APROVADO'&&
+const ready=e=>['homologacao','clinica-producao'].includes(e.CLIGED_AMBIENTE)&&e.HML_CLINIC_LIVE_ENABLED==='SIM_APROVADO'&&
  e.HML_DB?.prepare&&e.HML_TOMTICKET_TOKEN&&e.HML_PILOT_CUSTOMER_ID&&
  e.HML_PILOT_DEPARTMENT_ID&&e.HML_PILOT_OPERATOR_ID&&e.HML_GOOGLE_CHAT_WEBHOOK_URL;
 async function change(db,key,from,to,ticket=null){
@@ -43,7 +43,7 @@ export async function solicitarClinicaReal(request,env={}){
   pedido=await prepararSolicitacao(catalogo,JSON.parse(raw));
   if(pedido.unit_code!=='CLI-MCE')return reply({sucesso:false,mensagem:'Unidade não autorizada.'},403);
   // Liberação faseada: mesmo com integração ativa, só o local explicitamente autorizado pode abrir ticket.
-  if(env.HML_CLINIC_LIVE_ALLOWED_LOCAL!==pedido.local_code)
+  if(!(env.CLIGED_AMBIENTE==='clinica-producao'&&env.HML_CLINIC_LIVE_ALLOWED_LOCAL==='TODOS_9')&&env.HML_CLINIC_LIVE_ALLOWED_LOCAL!==pedido.local_code)
    return reply({sucesso:false,estado:'LOCAL_NAO_LIBERADO',mensagem:'Este banheiro ainda não foi liberado para chamados reais.'},403);
  }catch{return reply({sucesso:false,mensagem:'Local ou serviços inválidos.'},400);}
  const key=pedido.idempotency_key,db=env.HML_DB;
@@ -94,7 +94,8 @@ export async function solicitarClinicaReal(request,env={}){
   // Cria link bearer de conclusão: único, não expõe o segredo na listagem pública.
   const bytes=crypto.getRandomValues(new Uint8Array(32));
   const token=btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');
-  const link='https://cliged-qr-hml-isolado.appgrupocliged.workers.dev/hml/atendimento-real#chave='+token;
+  const base=env.CLIGED_AMBIENTE==='clinica-producao'?'https://cliged-qr-clinica.appgrupocliged.workers.dev':'https://cliged-qr-hml-isolado.appgrupocliged.workers.dev';
+  const link=base+(env.CLIGED_AMBIENTE==='clinica-producao'?'/concluir':'/hml/atendimento-real')+'#chave='+token;
   await change(db,key,'VINCULADO','LINKANDO');
   try{
    const linkSaved=await db.prepare('INSERT OR IGNORE INTO hml_real_completion_links(token_hash,request_key,expires_at) VALUES (?,?,?)')
