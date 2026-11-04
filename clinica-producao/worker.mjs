@@ -64,7 +64,7 @@ export default {
   if(request.method==='GET'&&(path==='/clinica'||path==='/hml/clinica/solicitar'))
    return new Response(htmlClinicaReal,{headers:htmlHeaders});
   if(request.method==='GET'&&(path==='/concluir'||path==='/hml/atendimento-real'))
-   return new Response(htmlAtendimentoReal,{headers:htmlHeaders});
+   return new Response(htmlAtendimentoReal.replace(/<div role="status"[^>]*>[^<]*<\/div>/,''),{headers:htmlHeaders});
   if(request.method==='POST'&&path==='/hml/clinica/solicitar')
    return solicitarClinicaReal(request,env);
   if(request.method==='GET'&&path==='/hml/clinica/status')
