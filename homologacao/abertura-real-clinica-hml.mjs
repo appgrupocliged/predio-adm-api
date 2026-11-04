@@ -91,7 +91,7 @@ export async function solicitarClinicaReal(request,env={}){
   await change(db,key,'VINCULADO','LINKANDO');
   try{
    const linkSaved=await db.prepare('INSERT OR IGNORE INTO hml_real_completion_links(token_hash,request_key,expires_at) VALUES (?,?,?)')
-    .bind(await hash(token),key,Math.floor(Date.now()/1000)+48*3600).run();
+    .bind(await hash(token),key,Math.floor(Date.now()/1000)+30*24*3600).run();
    if(!(linkSaved.meta?.changes>0))return uncertain(env,key,'LINKANDO','LINK_INCERTO','Link de conclusão já reservado.');
   }catch{return uncertain(env,key,'LINKANDO','LINK_INCERTO','Não foi possível criar o link de conclusão.');}
   let insertedLink;
