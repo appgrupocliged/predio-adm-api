@@ -1,0 +1,18 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "cliged-qr-clinica",
+  "main": "./worker.mjs",
+  "compatibility_date": "2026-08-25",
+  "workers_dev": true,
+  "vars": {
+    "CLIGED_AMBIENTE": "clinica-producao",
+    "HML_CLINIC_LIVE_ENABLED": "NAO",
+    "HML_CLINIC_REAL_COMPLETION_ENABLED": "NAO",
+    "HML_CLINIC_LIVE_ALLOWED_LOCAL": "B.01"
+  },
+  "d1_databases": [{
+    "binding": "HML_DB",
+    "database_name": "cliged-qr-clinica-db",
+    "database_id": "SUBSTITUIR_PELO_ID_REAL_DO_D1_CLINICA"
+  }]
+}
