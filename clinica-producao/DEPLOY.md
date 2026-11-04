@@ -21,6 +21,9 @@
 8. Só depois do aceite, trocar `HML_CLINIC_LIVE_ALLOWED_LOCAL=TODOS_9` para liberar todos os nove códigos; imprimir em `https://cliged-qr-clinica.appgrupocliged.workers.dev/qr-codes`.
 
 ## Segurança
+- A configuração `wrangler.jsonc` desta branch acompanha a liberação operacional informada: nove locais e conclusão habilitados, com os três identificadores Text da integração. Os dois secrets continuam exclusivamente no Cloudflare.
+- Não sobrescrever a configuração ativa com `wrangler.example.jsonc`: o exemplo mantém os bloqueios iniciais para novas instalações.
+- A sincronização local não autoriza publicação. Antes do deploy, revisar o diff e confirmar o Worker `cliged-qr-clinica`, o D1 exclusivo e o GO técnico. Push nesta branch pode disparar o build conectado; não fazer push antes do GO.
 - Não migrar dados do banco HML para produção.
 - Não habilitar `TODOS_9` sem verificação real do novo Worker.
 - O link de conclusão usa bearer token único com validade de 30 dias. O encerramento possui trava idempotente; falhas externas não são repetidas automaticamente.

@@ -93,7 +93,7 @@ export async function conclusaoRealClinica(request,env={}){
   const chat=await fetch(hook.toString(),{method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({text:'✅ Solicitação concluída.\n\nUnidade: Clínica CLIGED Macaé\nLocal: '+row.location_id+
     '\nServiços: '+JSON.parse(row.items_json).join(', ')+'\nRealizado por: '+actor+
-    '\nTomTicket: '+row.ticket_id}),redirect:'manual',signal:AbortSignal.timeout(12000)});
+    (env.CLIGED_AMBIENTE==='clinica-producao'?'':'\nTomTicket: '+row.ticket_id)}),redirect:'manual',signal:AbortSignal.timeout(12000)});
   if(!chat.ok)throw Error();
  }catch{
   await update(env.HML_DB,row.idempotency_key,'CHAT_INICIADO','CHAT_INCERTO').catch(()=>{});

@@ -22,6 +22,7 @@ const env={
  HML_TOMTICKET_TOKEN:'mock',HML_GOOGLE_CHAT_WEBHOOK_URL:'https://chat.googleapis.com/v1/spaces/test/messages?key=test'
 };
 const calls=[],old=globalThis.fetch;
+if(process.argv.includes('--clinica-producao'))env.CLIGED_AMBIENTE='clinica-producao';
 globalThis.fetch=async(url,init)=>{calls.push({url:String(url),body:init.body});
  if(String(url).endsWith('/ticket/finish'))return new Response('{"success":true}');
  if(String(url).startsWith('https://chat.googleapis.com/'))return new Response('{"name":"posted"}');
@@ -41,5 +42,6 @@ try{
  assert.equal((await post('concluir',{token,nome:'Colaboradora de Teste'})).status,409);
  assert.equal(calls.length,2);
  assert.ok(String(calls[1].body).includes('Realizado por:'));
+ assert.equal(JSON.parse(calls[1].body).text.includes('TomTicket:'),env.CLIGED_AMBIENTE!=='clinica-producao');
  console.log('PASS: concluir ticket por link, notificar Chat, gravar D1 e impedir segundo finish');
 }finally{globalThis.fetch=old;sql.close();}

@@ -17,6 +17,7 @@ const env={
  HML_GOOGLE_CHAT_WEBHOOK_URL:'https://chat.googleapis.com/v1/spaces/demo/messages?key=mock&token=mock'
 };
 const old=globalThis.fetch,calls=[];
+if(process.argv.includes('--clinica-producao'))env.CLIGED_AMBIENTE='clinica-producao';
 globalThis.fetch=async(url,init)=>{
  calls.push({url:String(url),body:init.body});
  if(String(url).endsWith('/ticket/new'))return new Response('{"ticket_id":"TEST-4409"}');
@@ -32,6 +33,9 @@ const post=body=>solicitarClinicaReal(new Request('https://hml.invalid/hml/clini
 try{
  const created=await post(payload);assert.equal(created.status,201);assert.equal((await created.json()).estado,'ABERTA');
  assert.equal(calls.length,4);
+ const chatText=JSON.parse(calls[3].body).text;
+ assert.equal(chatText.includes('Chamado:'),env.CLIGED_AMBIENTE!=='clinica-producao');
+ assert.ok(chatText.includes('Concluir:'));
  const row=sql.prepare('SELECT state,ticket_id FROM qr_requests WHERE idempotency_key=?').get(key);
  assert.equal(row.state,'ABERTA');assert.equal(row.ticket_id,'TEST-4409');
  assert.equal(sql.prepare('SELECT stage FROM hml_clinic_live_dispatch WHERE request_key=?').get(key).stage,'ATIVO');

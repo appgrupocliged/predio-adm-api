@@ -118,7 +118,7 @@ export async function solicitarClinicaReal(request,env={}){
    if(hook.hostname!=='chat.googleapis.com'||hook.protocol!=='https:')throw Error();
    const r=await fetch(hook.toString(),{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({text:'🚨 NOVA SOLICITAÇÃO CLÍNICA CLIGED\nLocal: '+pedido.local_code+' — '+pedido.local_name+
-     '\nServiços: '+pedido.servicos.join(', ')+'\nChamado: '+ticketId+'\nConcluir: '+link}),
+     '\nServiços: '+pedido.servicos.join(', ')+(env.CLIGED_AMBIENTE==='clinica-producao'?'':'\nChamado: '+ticketId)+'\nConcluir: '+link}),
     redirect:'manual',signal:AbortSignal.timeout(12000)});
    if(!r.ok)throw Error();
   }catch{return uncertain(env,key,'CHAT_INICIADO','CHAT_INCERTO','Chamado criado; notificação não confirmada.');}
