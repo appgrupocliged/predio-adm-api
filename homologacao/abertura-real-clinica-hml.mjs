@@ -49,9 +49,13 @@ export async function solicitarClinicaReal(request,env={}){
  const key=pedido.idempotency_key,db=env.HML_DB;
  try{
   const existing=await db.prepare('SELECT fingerprint,state,ticket_id FROM qr_requests WHERE idempotency_key=?').bind(key).first();
-  if(existing)return reply(existing.fingerprint===pedido.fingerprint?
-   {sucesso:true,duplicado:true,estado:existing.state,mensagem:'Solicitação já recebida. Não reenviar.'}:
-   {sucesso:false,mensagem:'Identificador reutilizado com outros dados.'},existing.fingerprint===pedido.fingerprint?200:409);
+  if(existing) {
+   if(existing.fingerprint!==pedido.fingerprint)
+    return reply({sucesso:false,mensagem:'Identificador reutilizado com outros dados.'},409);
+   if(existing.state!=='ABERTA'&&existing.state!=='CONCLUIDA')
+    return reply({sucesso:false,duplicado:true,estado:existing.state,mensagem:'Solicitação pendente de verificação. Não reenvie.'},409);
+   return reply({sucesso:true,duplicado:true,request_key:key,estado:existing.state,mensagem:'Solicitação já registrada. Não reenviar.'});
+  }
   // Limite por banheiro: 1 nova solicitação por 60 s. UPSERT condicionado atômico.
   const now=Math.floor(Date.now()/1000);
   const limiter=await db.prepare("INSERT INTO hml_clinic_live_rate(location_id,last_sent_at) VALUES (?,?) ON CONFLICT(location_id) DO UPDATE SET last_sent_at=excluded.last_sent_at WHERE hml_clinic_live_rate.last_sent_at<=?")
@@ -115,7 +119,7 @@ export async function solicitarClinicaReal(request,env={}){
   }catch{return uncertain(env,key,'CHAT_INICIADO','CHAT_INCERTO','Chamado criado; notificação não confirmada.');}
   await change(db,key,'CHAT_INICIADO','ATIVO');
   await db.prepare("UPDATE qr_requests SET state='ABERTA',updated_at=CURRENT_TIMESTAMP WHERE idempotency_key=? AND state='ENVIO_INICIADO'").bind(key).run();
-  return reply({sucesso:true,estado:'ABERTA',location_id:pedido.location_id,
+  return reply({sucesso:true,request_key:key,estado:'ABERTA',location_id:pedido.location_id,
     mensagem:'Solicitação enviada. A equipe foi notificada.'},201);
  }catch{return reply({sucesso:false,estado:'PENDENTE_VERIFICACAO',
    mensagem:'Resultado não confirmado. Não envie novamente; a equipe verificará.'},503);}
