@@ -5,6 +5,7 @@ on:
       - homologacao/multiunidade-v1
     paths:
       - 'homologacao/**'
+      - 'clinica-producao/**'
       - '.github/workflows/validacao-qr-hml.yml'
   workflow_dispatch:
 permissions:
@@ -64,6 +65,9 @@ jobs:
 
       - name: Valida conclusao real mock colaboradora TomTicket Chat
         run: node --test homologacao/conclusao-real-integra-hml.test.mjs
+
+      - name: Valida Worker exclusivo da Clinica em modo seguro
+        run: node --test clinica-producao/worker.test.mjs
 
       - name: Valida empacotamento Cloudflare HML sem publicar
         run: npx --yes wrangler@4.47.0 deploy --dry-run --config homologacao/wrangler.hml.jsonc
