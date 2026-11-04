@@ -4,6 +4,7 @@
 // Em qualquer erro/timeout externo não há reenvio automático.
 import {tokenValido} from './reserva-hml.mjs';
 const BASE='https://cliged-qr-hml-isolado.appgrupocliged.workers.dev';
+const prodBase='https://cliged-qr-clinica.appgrupocliged.workers.dev';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const reply=(data,http=200)=>new Response(JSON.stringify(data),{status:http,headers:{
  'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',
@@ -11,7 +12,7 @@ const reply=(data,http=200)=>new Response(JSON.stringify(data),{status:http,head
 }});
 async function digest(s){const b=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)));return [...b].map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function body(req,limit=512){const text=await req.text();if(text.length>limit)throw Error();const val=JSON.parse(text);if(!val||typeof val!=='object'||Array.isArray(val))throw Error();return val;}
-const allowed=env=>env.CLIGED_AMBIENTE==='homologacao'&&env.HML_DB?.prepare&&env.HML_CLINIC_REAL_COMPLETION_ENABLED==='SIM_APROVADO';
+const allowed=env=>['homologacao','clinica-producao'].includes(env.CLIGED_AMBIENTE)&&env.HML_DB?.prepare&&env.HML_CLINIC_REAL_COMPLETION_ENABLED==='SIM_APROVADO';
 const real=r=>r?.unit_code==='CLI-MCE'&&r.location_id==='CLI-MCE:'+r.local_code&&r.state==='ABERTA'&&
  typeof r.ticket_id==='string'&&r.ticket_id.length>4&&!r.ticket_id.startsWith('SIM-');
 async function update(db,key,oldState,newState){
@@ -38,7 +39,7 @@ export async function conclusaoRealClinica(request,env={}){
    const r=await env.HML_DB.prepare('INSERT OR IGNORE INTO hml_real_completion_links(token_hash,request_key,expires_at) VALUES(?,?,?)')
      .bind(await digest(token),key,expires).run();
    if(!(r.meta?.changes>0))return reply({sucesso:false,mensagem:'Este chamado já possui um link de conclusão.'},409);
-   return reply({sucesso:true,url:BASE+'/hml/atendimento-real#chave='+token,expira_em:new Date(expires*1000).toISOString()},201);
+   return reply({sucesso:true,url:(env.CLIGED_AMBIENTE==='clinica-producao'?prodBase+'/concluir':BASE+'/hml/atendimento-real')+'#chave='+token,expira_em:new Date(expires*1000).toISOString()},201);
   }catch{return reply({sucesso:false,mensagem:'Falha ao emitir link.'},503);}
  }
  if(!['/hml/real/links/consultar','/hml/real/links/concluir'].includes(path))return reply({sucesso:false,mensagem:'Rota indisponível.'},404);
