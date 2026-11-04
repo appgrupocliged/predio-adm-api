@@ -42,6 +42,9 @@ export async function solicitarClinicaReal(request,env={}){
   const raw=await request.text();if(raw.length>2048)throw Error();
   pedido=await prepararSolicitacao(catalogo,JSON.parse(raw));
   if(pedido.unit_code!=='CLI-MCE')return reply({sucesso:false,mensagem:'Unidade não autorizada.'},403);
+  // Liberação faseada: mesmo com integração ativa, só o local explicitamente autorizado pode abrir ticket.
+  if(env.HML_CLINIC_LIVE_ALLOWED_LOCAL!==pedido.local_code)
+   return reply({sucesso:false,estado:'LOCAL_NAO_LIBERADO',mensagem:'Este banheiro ainda não foi liberado para chamados reais.'},403);
  }catch{return reply({sucesso:false,mensagem:'Local ou serviços inválidos.'},400);}
  const key=pedido.idempotency_key,db=env.HML_DB;
  try{
