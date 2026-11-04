@@ -1,0 +1,26 @@
+name: Clinica CLIGED Producao - validacao sem deploy
+on:
+  push:
+    branches:
+      - producao/clinica-macae-v1
+    paths:
+      - 'clinica-producao/**'
+      - 'homologacao/**'
+      - '.github/workflows/validacao-clinica-producao.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar Worker exclusivo e QR Codes de producao
+        run: node --test clinica-producao/worker.test.mjs
+      - name: Validar integracoes reais com mocks sem disparo externo
+        run: node --test homologacao/abertura-real-integra-hml.test.mjs homologacao/conclusao-real-integra-hml.test.mjs
+      - name: Validar comportamento seguro quando integracao esta desativada
+        run: node --test homologacao/abertura-real-clinica-hml.test.mjs homologacao/conclusao-real-clinica-hml.test.mjs
