@@ -34,7 +34,7 @@ export async function conclusaoRealClinica(request,env={}){
    // Preserva um único link por chamado: não cria outro se um já existir/expirar.
    const bytes=crypto.getRandomValues(new Uint8Array(32));
    const token=btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');
-   const expires=Math.floor(Date.now()/1000)+48*3600;
+   const expires=Math.floor(Date.now()/1000)+30*24*3600;
    const r=await env.HML_DB.prepare('INSERT OR IGNORE INTO hml_real_completion_links(token_hash,request_key,expires_at) VALUES(?,?,?)')
      .bind(await digest(token),key,expires).run();
    if(!(r.meta?.changes>0))return reply({sucesso:false,mensagem:'Este chamado já possui um link de conclusão.'},409);
