@@ -59,5 +59,8 @@ jobs:
       - name: Valida 9 QR fixos e trava de abertura real da Clinica
         run: node --test homologacao/abertura-real-clinica-hml.test.mjs
 
+      - name: Valida ciclo real mock com TomTicket Chat e idempotencia
+        run: node --test homologacao/abertura-real-integra-hml.test.mjs
+
       - name: Valida empacotamento Cloudflare HML sem publicar
         run: npx --yes wrangler@4.47.0 deploy --dry-run --config homologacao/wrangler.hml.jsonc
