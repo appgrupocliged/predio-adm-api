@@ -854,8 +854,9 @@ export default {
 
         await notificarGoogleChat(
           env,
-          "🚨 NOVA SOLICITAÇÃO\n\n" +
-          "📍 Local: " + codigo + " — " + local + "\n" +
+          "🚨 NOVA SOLICITAÇÃO — PRÉDIO ADMINISTRATIVO\n\n" +
+          "Unidade: Prédio Administrativo — Macaé\n" +
+          "📍 Local: " + codigo + " — BANHEIRO — " + local + "\n" +
           mensagemRecebida +
           "\n\n🔗 Concluir solicitação:\n" + linkConclusao
         );
@@ -971,8 +972,9 @@ export default {
 
         await notificarGoogleChat(
           env,
-          "✅ Solicitação concluída.\n\n" +
-          "Local: " + local_code + " — " + localConcluido +
+          "✅ SOLICITAÇÃO CONCLUÍDA — PRÉDIO ADMINISTRATIVO\n\n" +
+          "Unidade: Prédio Administrativo — Macaé\n" +
+          "Local: " + local_code + " — BANHEIRO — " + localConcluido +
           "\n\nRealizado por: " + nome
         );
 
