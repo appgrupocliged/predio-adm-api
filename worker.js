@@ -694,15 +694,16 @@ export default {
           );
         }
 
-        const assuntoOficial = "Solicitação - " + local;
+        const assuntoOficial = "Solicitação - Prédio Administrativo - " + codigo + " - " + local;
 
         let mensagemRecebida = String(message)
           .replace(/\\n/g, "\n")
           .replace(/^Local:.*\n*/i, "");
 
         const mensagemOficial =
+          "Unidade: Prédio Administrativo — Macaé\n" +
           "Código do local: " + codigo + "\n" +
-          "Local: " + local + "\n\n" +
+          "Local: " + codigo + " — BANHEIRO — " + local + "\n\n" +
           mensagemRecebida;
 
         // --------------------------------------------------
