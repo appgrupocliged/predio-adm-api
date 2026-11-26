@@ -3,6 +3,7 @@
 // Link de conclusão é uma credencial bearer temporária, única por solicitação.
 // Em qualquer erro/timeout externo não há reenvio automático.
 import {tokenValido} from './reserva-hml.mjs';
+import {formatarLocalChatClinica} from './rotulo-chat-clinica.mjs';
 const BASE='https://cliged-qr-hml-isolado.appgrupocliged.workers.dev';
 const prodBase='https://cliged-qr-clinica.appgrupocliged.workers.dev';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -91,8 +92,8 @@ export async function conclusaoRealClinica(request,env={}){
   const hook=new URL(env.HML_GOOGLE_CHAT_WEBHOOK_URL);
   if(hook.protocol!=='https:'||hook.hostname!=='chat.googleapis.com')throw Error();
   const chat=await fetch(hook.toString(),{method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({text:'✅ Solicitação concluída.\n\nUnidade: Clínica CLIGED Macaé\nLocal: '+row.location_id+
-    '\nServiços: '+JSON.parse(row.items_json).join(', ')+'\nRealizado por: '+actor+
+   body:JSON.stringify({text:'✅ SOLICITAÇÃO CONCLUÍDA — CLÍNICA MATRIZ\n\nUnidade: Clínica CLIGED — Macaé\nLocal: '+formatarLocalChatClinica(row.local_code)+
+    '\nSolicitação: '+JSON.parse(row.items_json).join(', ')+'\nRealizado por: '+actor+
     (env.CLIGED_AMBIENTE==='clinica-producao'?'':'\nTomTicket: '+row.ticket_id)}),redirect:'manual',signal:AbortSignal.timeout(12000)});
   if(!chat.ok)throw Error();
  }catch{

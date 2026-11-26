@@ -1,6 +1,7 @@
 // Apenas CLI-MCE, ambiente HML isolado. Abrir tickets reais exige
 // HML_CLINIC_LIVE_ENABLED=SIM_APROVADO. Nenhum retry externo automático.
 import catalogo from './catalogo-unidades.json' with {type:'json'};
+import {formatarLocalChatClinica} from './rotulo-chat-clinica.mjs';
 import {prepararSolicitacao} from './operacao-core.mjs';
 const path='/hml/clinica/solicitar';
 const reply=(b,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{
@@ -117,8 +118,8 @@ export async function solicitarClinicaReal(request,env={}){
    const hook=new URL(env.HML_GOOGLE_CHAT_WEBHOOK_URL);
    if(hook.hostname!=='chat.googleapis.com'||hook.protocol!=='https:')throw Error();
    const r=await fetch(hook.toString(),{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({text:'🚨 NOVA SOLICITAÇÃO CLÍNICA CLIGED\nLocal: '+pedido.local_code+' — '+pedido.local_name+
-     '\nServiços: '+pedido.servicos.join(', ')+(env.CLIGED_AMBIENTE==='clinica-producao'?'':'\nChamado: '+ticketId)+'\nConcluir: '+link}),
+    body:JSON.stringify({text:'🚨 NOVA SOLICITAÇÃO — CLÍNICA MATRIZ\n\nUnidade: Clínica CLIGED — Macaé\nLocal: '+formatarLocalChatClinica(pedido.local_code)+
+     '\nSolicitação: '+pedido.servicos.join(', ')+(env.CLIGED_AMBIENTE==='clinica-producao'?'':'\nChamado: '+ticketId)+'\nConcluir: '+link}),
     redirect:'manual',signal:AbortSignal.timeout(12000)});
    if(!r.ok)throw Error();
   }catch{return uncertain(env,key,'CHAT_INICIADO','CHAT_INCERTO','Chamado criado; notificação não confirmada.');}
