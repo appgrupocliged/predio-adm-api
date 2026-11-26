@@ -70,10 +70,16 @@ export async function solicitarClinicaReal(request,env={}){
   await db.prepare("UPDATE qr_requests SET state='ENVIO_INICIADO' WHERE idempotency_key=? AND state='RESERVADA'").bind(key).run();
   let created;
   try{
+   // Ajusta apenas assunto e descrição do TomTicket, sem mudar as regras da solicitação.
+   const localTomTicket=formatarLocalChatClinica(pedido.local_code);
+   const assuntoTomTicket='Solicitação - Clínica Matriz - '+localTomTicket;
+   const mensagemTomTicket=pedido.mensagem
+    .replace('Unidade: '+pedido.unit_name+' ('+pedido.unit_code+')','Unidade: Clínica CLIGED — Macaé')
+    .replace('Local: '+pedido.local_name,'Local: '+localTomTicket);
    created=await external(env,'new',new URLSearchParams({
     customer_id:env.HML_PILOT_CUSTOMER_ID,customer_id_type:'E',
     department_id:env.HML_PILOT_DEPARTMENT_ID,category_id:pedido.categoria,
-    subject:pedido.assunto,message:pedido.mensagem,priority:pedido.prioridade
+    subject:assuntoTomTicket,message:mensagemTomTicket,priority:pedido.prioridade
    }).toString());
   }catch{return uncertain(env,key,'CRIANDO','ENVIO_INCERTO','Não foi possível confirmar a criação do chamado.');}
   const ticket=created.data?.ticket_id||created.data?.id||created.data?.data?.ticket_id||created.data?.data?.id;
