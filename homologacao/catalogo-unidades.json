@@ -40,7 +40,8 @@
         "B.07": "CONSULTÓRIO 2",
         "B.08": "CONSULTÓRIO 4",
         "B.09": "SALA EXAMES 2",
-        "B.10": "ENDOSCOPIA - BANHEIRO"
+        "B.10": "BANHEIRO SALA ACOLHIMENTO",
+        "S.01": "SALA CTA"
       }
     }
   }
