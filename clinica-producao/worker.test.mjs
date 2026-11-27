@@ -5,15 +5,17 @@ const env={CLIGED_AMBIENTE:'clinica-producao',HML_DB:{prepare(){throw Error('une
 async function get(path){return worker.fetch(new Request('https://cliged-qr-clinica.appgrupocliged.workers.dev'+path),env)}
 const root=await get('/');
 assert.equal(root.status,200);
-assert.equal((await root.json()).locais,9);
+assert.equal((await root.json()).locais,10);
 const catalog=await get('/catalogo');
-assert.equal((await catalog.json()).unidades[0].locais.length,9);
+assert.equal((await catalog.json()).unidades[0].locais.length,10);
 const codes=await get('/qr-codes.json');
 const places=(await codes.json()).locais;
-assert.equal(places.length,9);
-assert.equal(new Set(places.map(v=>v.url)).size,9);
+assert.equal(places.length,10);
+assert.equal(new Set(places.map(v=>v.url)).size,10);
 assert.ok(places.every(v=>v.url.startsWith('https://cliged-qr-clinica.appgrupocliged.workers.dev/clinica?')));
 assert.ok(places.every(v=>v.svg.includes('<svg')));
+assert.equal(places.find(v=>v.codigo==='B.10')?.nome,'ENDOSCOPIA - BANHEIRO');
+assert.equal(places.find(v=>v.codigo==='B.10')?.url,'https://cliged-qr-clinica.appgrupocliged.workers.dev/clinica?unidade=CLI-MCE&local=B.10');
 assert.ok(places.every(v=>!v.url.includes('hml')&&!v.url.includes('predio-adm')));
 const home=await get('/clinica?unidade=CLI-MCE&local=B.01'),html=await home.text();
 assert.ok(html.includes('FAZER NOVA SOLICITAÇÃO'));

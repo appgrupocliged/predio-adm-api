@@ -44,7 +44,11 @@ export async function solicitarClinicaReal(request,env={}){
   pedido=await prepararSolicitacao(catalogo,JSON.parse(raw));
   if(pedido.unit_code!=='CLI-MCE')return reply({sucesso:false,mensagem:'Unidade não autorizada.'},403);
   // Liberação faseada: mesmo com integração ativa, só o local explicitamente autorizado pode abrir ticket.
-  if(!(env.CLIGED_AMBIENTE==='clinica-producao'&&env.HML_CLINIC_LIVE_ALLOWED_LOCAL==='TODOS_9')&&env.HML_CLINIC_LIVE_ALLOWED_LOCAL!==pedido.local_code)
+  // TODOS_9 permanece compatível com B.01–B.09; TODOS_10 inclui somente o novo B.10.
+  const liberacaoGeral=env.CLIGED_AMBIENTE==='clinica-producao'&&(
+   env.HML_CLINIC_LIVE_ALLOWED_LOCAL==='TODOS_10'||
+   (env.HML_CLINIC_LIVE_ALLOWED_LOCAL==='TODOS_9'&&pedido.local_code!=='B.10'));
+  if(!liberacaoGeral&&env.HML_CLINIC_LIVE_ALLOWED_LOCAL!==pedido.local_code)
    return reply({sucesso:false,estado:'LOCAL_NAO_LIBERADO',mensagem:'Este banheiro ainda não foi liberado para chamados reais.'},403);
  }catch{return reply({sucesso:false,mensagem:'Local ou serviços inválidos.'},400);}
  const key=pedido.idempotency_key,db=env.HML_DB;
