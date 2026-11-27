@@ -14,11 +14,14 @@ assert.match(a.mensagem,/Solicitar limpeza/);
 const clinic=await prepararSolicitacao(catalogo,{...base,local_code:"B.09"});
 const adm=await prepararSolicitacao(catalogo,{...base,unit_code:"ADM-MCE",local_code:"B.05"});
 assert.equal(clinic.local_name,"SALA EXAMES 2");
+const endoscopia=await prepararSolicitacao(catalogo,{...base,local_code:"B.10"});
+assert.equal(endoscopia.location_id,"CLI-MCE:B.10");
+assert.equal(endoscopia.local_name,"ENDOSCOPIA - BANHEIRO");
 assert.equal(adm.location_id,"ADM-MCE:B.05");
 assert.notEqual(clinic.fingerprint,adm.fingerprint);
 for(const data of [
  {...base,idempotency_key:"same"},
- {...base,unit_code:"CLI-MCE",local_code:"B.10"},
+ {...base,unit_code:"CLI-MCE",local_code:"B.11"},
  {...base,items:[]},
  {...base,items:["Papel toalha","Papel toalha"]},
  {...base,items:["Apagar chamado"]},
