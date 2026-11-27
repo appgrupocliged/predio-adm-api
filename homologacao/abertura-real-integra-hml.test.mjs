@@ -20,7 +20,7 @@ const old=globalThis.fetch,calls=[];
 if(process.argv.includes('--clinica-producao'))env.CLIGED_AMBIENTE='clinica-producao';
 globalThis.fetch=async(url,init)=>{
  calls.push({url:String(url),body:init.body});
- if(String(url).endsWith('/ticket/new'))return new Response(JSON.stringify({ticket_id:calls.filter(c=>c.url.endsWith('/ticket/new')).length===1?'TEST-4409':'TEST-4410'}));
+ if(String(url).endsWith('/ticket/new'))return new Response(JSON.stringify({ticket_id:'TEST-'+(4408+calls.filter(c=>c.url.endsWith('/ticket/new')).length)}));
  if(String(url).endsWith('/ticket/transfer'))return new Response('{"success":true}');
  if(String(url).endsWith('/ticket/reply/customer'))return new Response('{"success":true}');
  if(String(url).startsWith('https://chat.googleapis.com/'))return new Response('{"name":"ok"}');
@@ -47,17 +47,32 @@ try{
  // O novo B.10 só é liberado com TODOS_10; TODOS_9 continua atendendo B.01–B.09.
  env.CLIGED_AMBIENTE='clinica-producao';
  env.HML_CLINIC_LIVE_ALLOWED_LOCAL='TODOS_9';
- const endoscopia={...payload,idempotency_key:'00000000-0000-4000-8000-000000000085',local_code:'B.10'};
- const denied=await post(endoscopia);assert.equal(denied.status,403);assert.equal(calls.length,4);
+ const acolhimento={...payload,idempotency_key:'00000000-0000-4000-8000-000000000085',local_code:'B.10'};
+ const denied=await post(acolhimento);assert.equal(denied.status,403);assert.equal(calls.length,4);
  env.HML_CLINIC_LIVE_ALLOWED_LOCAL='TODOS_10';
- const permitted=await post(endoscopia);
+ const permitted=await post(acolhimento);
  assert.equal(permitted.status,201);
  assert.equal((await permitted.json()).estado,'ABERTA');
  assert.equal(calls.length,8);
  const bodyTomTicket=new URLSearchParams(calls[4].body);
- assert.equal(bodyTomTicket.get('subject'),'Solicitação - Clínica Matriz - B.10 — BANHEIRO — ENDOSCOPIA');
- assert.ok(bodyTomTicket.get('message').includes('Local: B.10 — BANHEIRO — ENDOSCOPIA'));
- assert.ok(JSON.parse(calls[7].body).text.includes('Local: B.10 — BANHEIRO — ENDOSCOPIA'));
+ assert.equal(bodyTomTicket.get('subject'),'Solicitação - Clínica Matriz - B.10 — BANHEIRO — SALA ACOLHIMENTO');
+ assert.ok(bodyTomTicket.get('message').includes('Local: B.10 — BANHEIRO — SALA ACOLHIMENTO'));
+ assert.ok(JSON.parse(calls[7].body).text.includes('Local: B.10 — BANHEIRO — SALA ACOLHIMENTO'));
  assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM qr_requests').get().n,2);
- console.log('PASS: real CLI-MCE B.03 e B.10: abertura→TomTicket→Chat; TODOS_9 compatível e B.10 requer TODOS_10');
+ // S.01 é setor, não banheiro: somente TODOS_11 habilita S.01 em produção.
+ const setor={...payload,idempotency_key:'00000000-0000-4000-8000-000000000086',local_code:'S.01',items:['limpeza']};
+ const setorBloqueado=await post(setor);
+ assert.equal(setorBloqueado.status,403);
+ assert.equal(calls.length,8);
+ env.HML_CLINIC_LIVE_ALLOWED_LOCAL='TODOS_11';
+ const setorPermitido=await post(setor);
+ assert.equal(setorPermitido.status,201);
+ assert.equal((await setorPermitido.json()).estado,'ABERTA');
+ assert.equal(calls.length,12);
+ const mensagemSetor=new URLSearchParams(calls[8].body);
+ assert.equal(mensagemSetor.get('subject'),'Solicitação - Clínica Matriz - S.01 — SETOR — SALA CTA');
+ assert.ok(mensagemSetor.get('message').includes('Local: S.01 — SETOR — SALA CTA'));
+ assert.ok(JSON.parse(calls[11].body).text.includes('Local: S.01 — SETOR — SALA CTA'));
+ assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM qr_requests').get().n,3);
+ console.log('PASS: B.03, B.10 Acolhimento e S.01 CTA; abertura→TomTicket→Chat e flags compatíveis');
 }finally{globalThis.fetch=old;sql.close();}

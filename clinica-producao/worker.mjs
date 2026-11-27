@@ -37,7 +37,7 @@ h1{color:#f1e7a8}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)
 button{padding:12px 18px;background:#f1e7a8;border:0;border-radius:8px;font-weight:700;cursor:pointer}
 @media(max-width:700px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:450px){.grid{grid-template-columns:1fr}}
 @media print{body{background:white}h1,button,.hint{display:none}.grid{grid-template-columns:repeat(3,1fr);gap:10px}.card{border-color:#000}}
-</style></head><body><main><h1>Clínica CLIGED Macaé — 10 QR Codes</h1>
+</style></head><body><main><h1>Clínica CLIGED Macaé — 11 QR Codes</h1>
 <p class="hint">Use apenas após a validação da implantação do Worker de produção.</p><button onclick="window.print()">Imprimir QR Codes</button>
 <div id="grid" class="grid"></div></main><script>
 (async()=>{
@@ -61,7 +61,7 @@ export default {
  async fetch(request,env={}){
   const url=new URL(request.url),path=url.pathname;
   if(!ready(env))return json({sucesso:false,mensagem:'Worker da Clinica nao configurado.'},503);
-  if(request.method==='GET'&&path==='/')return json({status:'online',sistema:'CLIGED QR Clinica Macae',locais:10});
+  if(request.method==='GET'&&path==='/')return json({status:'online',sistema:'CLIGED QR Clinica Macae',locais:11});
   if(request.method==='GET'&&path==='/catalogo'){
    return json({sucesso:true,unidades:[{codigo:'CLI-MCE',nome:'Clínica CLIGED Macaé',
     locais:Object.entries(places).map(([codigo,nome])=>({codigo,nome}))}]});
