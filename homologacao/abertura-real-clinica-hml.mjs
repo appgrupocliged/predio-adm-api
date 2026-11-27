@@ -44,12 +44,13 @@ export async function solicitarClinicaReal(request,env={}){
   pedido=await prepararSolicitacao(catalogo,JSON.parse(raw));
   if(pedido.unit_code!=='CLI-MCE')return reply({sucesso:false,mensagem:'Unidade não autorizada.'},403);
   // Liberação faseada: mesmo com integração ativa, só o local explicitamente autorizado pode abrir ticket.
-  // TODOS_9 permanece compatível com B.01–B.09; TODOS_10 inclui somente o novo B.10.
+  // TODOS_9 permite B.01–B.09; TODOS_10 permite B.01–B.10; TODOS_11 libera também S.01.
   const liberacaoGeral=env.CLIGED_AMBIENTE==='clinica-producao'&&(
-   env.HML_CLINIC_LIVE_ALLOWED_LOCAL==='TODOS_10'||
-   (env.HML_CLINIC_LIVE_ALLOWED_LOCAL==='TODOS_9'&&pedido.local_code!=='B.10'));
+   env.HML_CLINIC_LIVE_ALLOWED_LOCAL==='TODOS_11'||
+   (env.HML_CLINIC_LIVE_ALLOWED_LOCAL==='TODOS_10'&&/^B\.(?:0[1-9]|10)$/.test(pedido.local_code))||
+   (env.HML_CLINIC_LIVE_ALLOWED_LOCAL==='TODOS_9'&&/^B\.0[1-9]$/.test(pedido.local_code)));
   if(!liberacaoGeral&&env.HML_CLINIC_LIVE_ALLOWED_LOCAL!==pedido.local_code)
-   return reply({sucesso:false,estado:'LOCAL_NAO_LIBERADO',mensagem:'Este banheiro ainda não foi liberado para chamados reais.'},403);
+   return reply({sucesso:false,estado:'LOCAL_NAO_LIBERADO',mensagem:'Este ambiente ainda não foi liberado para chamados reais.'},403);
  }catch{return reply({sucesso:false,mensagem:'Local ou serviços inválidos.'},400);}
  const key=pedido.idempotency_key,db=env.HML_DB;
  try{
@@ -61,11 +62,11 @@ export async function solicitarClinicaReal(request,env={}){
     return reply({sucesso:false,duplicado:true,estado:existing.state,mensagem:'Solicitação pendente de verificação. Não reenvie.'},409);
    return reply({sucesso:true,duplicado:true,request_key:key,estado:existing.state,mensagem:'Solicitação já registrada. Não reenviar.'});
   }
-  // Limite por banheiro: 1 nova solicitação por 60 s. UPSERT condicionado atômico.
+  // Limite por ambiente: 1 nova solicitação por 60 s. UPSERT condicionado atômico.
   const now=Math.floor(Date.now()/1000);
   const limiter=await db.prepare("INSERT INTO hml_clinic_live_rate(location_id,last_sent_at) VALUES (?,?) ON CONFLICT(location_id) DO UPDATE SET last_sent_at=excluded.last_sent_at WHERE hml_clinic_live_rate.last_sent_at<=?")
    .bind(pedido.location_id,now,now-60).run();
-  if(!(limiter.meta?.changes>0))return reply({sucesso:false,mensagem:'Aguarde um minuto para uma nova solicitação neste banheiro.'},429);
+  if(!(limiter.meta?.changes>0))return reply({sucesso:false,mensagem:'Aguarde um minuto para uma nova solicitação neste ambiente.'},429);
   const inserted=await db.prepare("INSERT OR IGNORE INTO qr_requests(idempotency_key,fingerprint,unit_code,local_code,location_id,items_json,state) VALUES (?,?,?,?,?,?,'RESERVADA')")
     .bind(key,pedido.fingerprint,pedido.unit_code,pedido.local_code,pedido.location_id,JSON.stringify(pedido.servicos)).run();
   if(!(inserted.meta?.changes>0))return reply({sucesso:false,mensagem:'Solicitação já registrada.'},409);
